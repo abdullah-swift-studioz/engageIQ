@@ -8,6 +8,8 @@ export type {
   ShopifyLineItem, ShopifyProductVariant, ShopifyAddress,
   BackfillJobData, BackfillStatus, BackfillProgress,
   SdkEventPayload, SdkEventBatch, SdkIdentifyPayload,
+  EnrichedCustomerProfile, CustomerSegmentMembership, CustomerJourneyEnrollment,
+  CustomerRecentOrder, CustomerRecentCheckout, CustomerEventStats,
 } from './types.js'
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'

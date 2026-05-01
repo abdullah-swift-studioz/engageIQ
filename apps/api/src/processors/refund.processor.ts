@@ -1,6 +1,7 @@
 import { prisma } from '@engageiq/db'
 import type { ShopifyRefundPayload } from '@engageiq/shared'
 import { recalculateCustomerAggregates } from './order.processor.js'
+import { recalculateCodProfile } from '../services/profile-sync.service.js'
 
 export async function processRefund(
   merchantId: string,
@@ -42,5 +43,9 @@ export async function processRefund(
 
   if (order.customerId) {
     await recalculateCustomerAggregates(merchantId, order.customerId)
+
+    recalculateCodProfile(merchantId, order.customerId).catch((err: unknown) =>
+      console.error('recalculateCodProfile failed', err),
+    )
   }
 }

@@ -36,11 +36,12 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 - **2.2 — Webhook Processing Pipeline** (2026-04-28) — BullMQ worker on `webhook-ingestion` queue; processors for all 10 webhook topics; Order + AbandonedCheckout models added; customer aggregates recalculated from DB; product/inventory cached in Redis
 - **2.3 — Historical Backfill** (2026-04-29) — Shopify Admin REST client with rate limiting; BullMQ backfill worker (customers phase + orders phase + batch aggregate recalc); Redis progress tracking; `GET /backfill/status` + `POST /backfill/trigger` routes; auto-enqueued on OAuth install
 - **2.4 — Storefront Event Tracking SDK** (2026-04-29) — Vanilla JS IIFE SDK (2.2 KB gzipped); tracks all 13 events; anon cookie + session storage; auto-init from `data-merchant-id`; `POST /v1/sdk/events` (ClickHouse ingestion); `POST /v1/sdk/identify` (identity stitching with stub customer creation); App Embed Block extension stub; Prisma migration for `customer.anonIds[]`
+- **3.1 — Profile Aggregation & Real-Time Updates** (2026-05-02) — `EnrichedCustomerProfile` shared type; `GET /api/v1/customers/:id` (full profile: PostgreSQL + ClickHouse event stats merged); `GET /api/v1/customers` (paginated list + search); `syncSessionCount` + `recalculateCodProfile` fire-and-forget sync services wired into SDK events, order webhooks, and refund webhooks; Remix customer list + detail pages (11 sections, all fields); 11 Vitest tests passing
 
 ## Active Phase
 
-Phase 3 — Unified Customer Profiles (Next)
-- [ ] 3.1 Profile Aggregation & Real-Time Updates
+Phase 3 — Unified Customer Profiles (In Progress)
+- [x] 3.1 Profile Aggregation & Real-Time Updates (2026-05-02)
 - [ ] 3.2 Identity Resolution
 - [ ] 3.3 Custom Event API & Multi-Store Unification
 

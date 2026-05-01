@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import type { ShopifyOrderPayload, ShopifyLineItem } from '@engageiq/shared'
 import { detectCod, parseTags } from './utils.js'
 import { processCustomerUpsert } from './customer.processor.js'
+import { recalculateCodProfile } from '../services/profile-sync.service.js'
 
 /**
  * Recompute totalOrders, totalSpent, avgOrderValue, firstOrderAt, lastOrderAt,
@@ -151,9 +152,18 @@ export async function processOrder(
     })
   }
 
+  const gateway = payload.payment_gateway || payload.gateway || ''
+  const isCod = detectCod(gateway, payload.financial_status)
+
   await processOrderUpsert(merchantId, payload, customerId)
 
   if (customerId) {
     await recalculateCustomerAggregates(merchantId, customerId)
+
+    if (isCod) {
+      recalculateCodProfile(merchantId, customerId).catch((err: unknown) =>
+        console.error('recalculateCodProfile failed', err),
+      )
+    }
   }
 }

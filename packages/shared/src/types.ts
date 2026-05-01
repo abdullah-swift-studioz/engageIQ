@@ -194,6 +194,120 @@ export interface SdkIdentifyPayload {
   shopify_customer_id?: string
 }
 
+// ─── Enriched Customer Profile (Milestone 3.1) ───────────────────────────────
+
+export interface CustomerSegmentMembership {
+  segmentId: string
+  segmentName: string
+  enteredAt: string
+}
+
+export interface CustomerJourneyEnrollment {
+  journeyId: string
+  journeyName: string
+  status: string
+  enrolledAt: string
+  currentStepId: string | null
+}
+
+export interface CustomerRecentOrder {
+  id: string
+  shopifyOrderId: string
+  orderNumber: string
+  totalPrice: string
+  financialStatus: string | null
+  fulfillmentStatus: string | null
+  isCod: boolean
+  cancelledAt: string | null
+  placedAt: string
+}
+
+export interface CustomerRecentCheckout {
+  id: string
+  totalPrice: string
+  lineItems: unknown
+  abandonedAt: string | null
+  recoveredAt: string | null
+}
+
+export interface CustomerEventStats {
+  pageViewCount: number
+  addToCartCount: number
+  checkoutStartedCount: number
+  sessionCount: number
+}
+
+export interface EnrichedCustomerProfile {
+  // Core identity
+  id: string
+  merchantId: string
+  shopifyCustomerId: string | null
+  email: string | null
+  phone: string | null
+  firstName: string | null
+  lastName: string | null
+  city: string | null
+  province: string | null
+  country: string
+  languagePreference: string | null
+  tags: string[]
+
+  // Shopify aggregates
+  totalOrders: number
+  totalSpent: string
+  avgOrderValue: string
+  firstOrderAt: string | null
+  lastOrderAt: string | null
+
+  // Behavioral (PostgreSQL fast-path + ClickHouse enrichment)
+  lastSeenAt: string | null
+  sessionCount: number
+  eventStats: CustomerEventStats
+
+  // RFM
+  rfmSegment: string | null
+  rfmRecencyScore: number | null
+  rfmFrequencyScore: number | null
+  rfmMonetaryScore: number | null
+  rfmScoredAt: string | null
+
+  // AI scores
+  churnScore: number | null
+  churnRiskLabel: string | null
+  churnScoredAt: string | null
+  ltv90d: string | null
+  ltv180d: string | null
+  ltv365d: string | null
+  ltvScoredAt: string | null
+
+  // COD profile
+  codOrderCount: number
+  codAcceptanceRate: number | null
+  codRejectionRate: number | null
+  fakeOrderScore: number | null
+  isBlocked: boolean
+
+  // Channel opt-ins
+  isSubscribedEmail: boolean
+  isSubscribedSms: boolean
+  isSubscribedWhatsapp: boolean
+
+  // Multi-store / identity resolution
+  groupCustomerId: string | null
+  mergedIntoId: string | null
+  mergedAt: string | null
+  anonIds: string[]
+
+  // Related data
+  segmentMemberships: CustomerSegmentMembership[]
+  journeyEnrollments: CustomerJourneyEnrollment[]
+  recentOrders: CustomerRecentOrder[]
+  recentAbandonedCheckouts: CustomerRecentCheckout[]
+
+  createdAt: string
+  updatedAt: string
+}
+
 // ─── Backfill Job ─────────────────────────────────────────────────────────────
 
 export interface BackfillJobData {

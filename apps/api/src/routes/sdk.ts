@@ -7,6 +7,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify'
 import { prisma, insertEvents } from '@engageiq/db'
 import type { EngageIQEvent } from '@engageiq/db'
 import { stitchIdentity } from '../services/identity.service.js'
+import { syncSessionCount } from '../services/profile-sync.service.js'
 
 // Resolve path to the pre-built SDK file relative to this source file.
 // In dev (tsx): __dirname = apps/api/src/routes/
@@ -131,6 +132,23 @@ export default function sdkRoutes(fastify: FastifyInstance): void {
             data: { lastSeenAt: new Date() },
           })
           .catch(() => {/* best-effort */})
+
+        // Sync session count for each known customer — fire and forget
+        for (const customerId of knownCustomerIds) {
+          prisma.customer
+            .findFirst({
+              where: { id: customerId, merchantId },
+              select: { anonIds: true },
+            })
+            .then((cust) => {
+              if (cust) {
+                syncSessionCount(merchantId, customerId, cust.anonIds).catch(
+                  (err: unknown) => fastify.log.error({ err }, 'syncSessionCount failed'),
+                )
+              }
+            })
+            .catch(() => {/* best-effort */})
+        }
       }
 
       return reply.status(200).send({ received: events.length })
