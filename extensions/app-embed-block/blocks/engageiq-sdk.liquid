@@ -1,0 +1,46 @@
+{% comment %}
+  EngageIQ Storefront Tracking SDK — App Embed Block
+  This block is automatically injected into all storefront pages when the
+  merchant enables "EngageIQ Analytics" in their theme editor under
+  Theme > Customize > App Embeds.
+
+  No manual theme editing is required.
+{% endcomment %}
+
+{% if block.settings.enabled %}
+  <script
+    src="{{ block.settings.api_base_url | append: '/sdk.js' }}"
+    data-merchant-id="{{ block.settings.merchant_id }}"
+    data-api-base="{{ block.settings.api_base_url }}"
+    async
+    defer
+  ></script>
+{% endif %}
+
+{% schema %}
+{
+  "name": "EngageIQ Analytics",
+  "target": "head",
+  "settings": [
+    {
+      "type": "checkbox",
+      "id": "enabled",
+      "label": "Enable EngageIQ tracking",
+      "default": true
+    },
+    {
+      "type": "text",
+      "id": "merchant_id",
+      "label": "Merchant ID",
+      "info": "Your EngageIQ merchant ID. Find this in Settings > API."
+    },
+    {
+      "type": "text",
+      "id": "api_base_url",
+      "label": "API Base URL",
+      "default": "https://api.engageiq.app",
+      "info": "Do not change unless directed by EngageIQ support."
+    }
+  ]
+}
+{% endschema %}

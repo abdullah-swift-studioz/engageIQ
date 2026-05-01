@@ -1,0 +1,46 @@
+{
+  "name": "@engageiq/db",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./clickhouse": {
+      "import": "./dist/clickhouse.js",
+      "types": "./dist/clickhouse.d.ts"
+    }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "eslint src",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:studio": "prisma studio",
+    "db:seed": "prisma db seed",
+    "ch:setup": "tsx --env-file=../../.env scripts/verify-clickhouse.ts"
+  },
+  "dependencies": {
+    "@clickhouse/client": "^1.2.0",
+    "@engageiq/shared": "workspace:*",
+    "@prisma/client": "^5.13.0",
+    "bcryptjs": "^3.0.3"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^3.0.0",
+    "@types/node": "^20.12.0",
+    "prisma": "^5.13.0",
+    "tsx": "^4.9.3",
+    "typescript": "^5.4.5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  }
+}

@@ -1,0 +1,16 @@
+# Shopify App Embed Block — EngageIQ SDK
+# Reference: https://shopify.dev/docs/apps/online-store/app-embeds
+
+api_version = "2024-01"
+
+[[extensions]]
+type = "theme"
+name = "EngageIQ Analytics"
+handle = "engageiq-sdk"
+
+  [extensions.development]
+    status = "active"
+
+  [[extensions.targeting]]
+    target = "head"
+    template = "blocks/engageiq-sdk.liquid"
