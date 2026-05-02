@@ -1,6 +1,7 @@
 import { prisma } from '@engageiq/db'
 import { Prisma } from '@prisma/client'
 import type { SdkIdentifyPayload } from '@engageiq/shared'
+import { mergeCustomers } from './merge.service.js'
 
 export interface StitchResult {
   customerId: string | null
@@ -22,14 +23,34 @@ export async function stitchIdentity(payload: SdkIdentifyPayload): Promise<Stitc
   let customer = await findCustomer(merchant_id, { shopify_customer_id, email, phone })
 
   if (customer) {
-    // Only update if this anon_id is genuinely new — avoids unnecessary writes
+    // Check if the anon_id belongs to a DIFFERENT profile (stub A)
+    const stubProfile = await prisma.customer.findFirst({
+      where: {
+        merchantId: merchant_id,
+        anonIds: { has: anon_id },
+        id: { not: customer.id },
+        mergedIntoId: null, // only merge unmerged stubs
+      },
+    })
+
+    if (stubProfile) {
+      // Auto-merge stub A into profile B (or whichever is older = canonical)
+      try {
+        await mergeCustomers(merchant_id, stubProfile.id, customer.id, 'sdk_login_shopify_id_match')
+        // After merge, the canonical ID is whichever is older
+        const canonicalId = stubProfile.createdAt <= customer.createdAt ? stubProfile.id : customer.id
+        return { customerId: canonicalId, isNewCustomer: false }
+      } catch {
+        // If merge fails for any reason, fall through to normal anon_id update
+        // (don't fail the identify call over a merge error)
+      }
+    }
+
+    // Normal path: no stub to merge, just update anon_id
     if (!customer.anonIds.includes(anon_id)) {
       await prisma.customer.update({
         where: { id: customer.id },
-        data: {
-          anonIds: { push: anon_id },
-          lastSeenAt: new Date(),
-        },
+        data: { anonIds: { push: anon_id }, lastSeenAt: new Date() },
       })
     } else {
       // Still refresh lastSeenAt
@@ -135,7 +156,7 @@ async function findCustomer(
  * Best-effort E.164 normalisation for Pakistani mobile numbers.
  * Accepts: 03001234567, +923001234567, 923001234567
  */
-function normalizePhone(raw: string): string | null {
+export function normalizePhone(raw: string): string | null {
   const digits = raw.replace(/\D/g, '')
   if (!digits) return null
 

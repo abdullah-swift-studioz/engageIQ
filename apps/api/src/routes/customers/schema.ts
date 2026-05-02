@@ -27,3 +27,10 @@ export const CustomerListItemSchema = z.object({
 export type GetCustomerParams = z.infer<typeof GetCustomerParamsSchema>
 export type GetCustomersQuery = z.infer<typeof GetCustomersQuerySchema>
 export type CustomerListItem = z.infer<typeof CustomerListItemSchema>
+
+export const MergeCustomersBodySchema = z.object({
+  customerId1: z.string().cuid(),
+  customerId2: z.string().cuid(),
+})
+
+export type MergeCustomersBody = z.infer<typeof MergeCustomersBodySchema>

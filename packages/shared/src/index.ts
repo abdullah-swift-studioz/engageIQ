@@ -10,6 +10,7 @@ export type {
   SdkEventPayload, SdkEventBatch, SdkIdentifyPayload,
   EnrichedCustomerProfile, CustomerSegmentMembership, CustomerJourneyEnrollment,
   CustomerRecentOrder, CustomerRecentCheckout, CustomerEventStats,
+  MergeResult,
 } from './types.js'
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'

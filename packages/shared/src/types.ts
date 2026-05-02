@@ -333,3 +333,12 @@ export interface BackfillProgress {
   completedAt: string | null
   error: string | null
 }
+
+// ─── Identity Resolution (Milestone 3.2) ─────────────────────────────────────
+
+export interface MergeResult {
+  canonicalId: string      // the profile that survives
+  secondaryId: string      // the profile marked as merged
+  mergedAt: string         // ISO timestamp
+  mergeReason: string      // e.g. "manual_dashboard_merge", "sdk_login_shopify_id_match"
+}

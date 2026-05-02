@@ -228,6 +228,24 @@ export default function CustomerDetail() {
         </Link>
       </div>
 
+      {/* ── Merged-status notice ─────────────────────────────────── */}
+      {customer.mergedIntoId && (
+        <div
+          className="mb-6 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3"
+          style={{ borderLeft: '4px solid #d97706' }}
+        >
+          <p className="text-sm font-medium text-yellow-800">
+            ⚠️ This profile has been merged into another profile.{' '}
+            <Link
+              to={`/customers/${customer.mergedIntoId}`}
+              className="underline hover:text-yellow-900"
+            >
+              View canonical profile ({customer.mergedIntoId})
+            </Link>
+          </p>
+        </div>
+      )}
+
       {/* ── Section 1: Header ────────────────────────────────────── */}
       <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
         <div className="flex items-start justify-between gap-4">
@@ -267,9 +285,19 @@ export default function CustomerDetail() {
               </div>
             )}
           </div>
-          <div className="shrink-0 text-right text-xs text-gray-400">
-            <p>Created {fmtDate(customer.createdAt)}</p>
-            <p className="mt-0.5">Updated {fmtDate(customer.updatedAt)}</p>
+          <div className="flex flex-col items-end gap-3">
+            <div className="text-right text-xs text-gray-400">
+              <p>Created {fmtDate(customer.createdAt)}</p>
+              <p className="mt-0.5">Updated {fmtDate(customer.updatedAt)}</p>
+            </div>
+            {!customer.mergedIntoId && (
+              <Link
+                to={`/customers/${customer.id}/merge`}
+                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+              >
+                Merge with another profile
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -26,39 +26,31 @@ async function fetchEventStats(
   merchantId: string,
   customerId: string,
   anonIds: string[],
+  mergedFromIds: string[],
 ): Promise<CustomerEventStats> {
   try {
-    const hasAnonIds = anonIds.length > 0
+    const extraConditions: string[] = []
+    if (anonIds.length > 0) extraConditions.push(`has({anonIds:Array(String)}, anon_id)`)
+    if (mergedFromIds.length > 0) extraConditions.push(`has({mergedFromIds:Array(String)}, customer_id)`)
 
-    const query = hasAnonIds
-      ? `
-          SELECT
-            countIf(event_type = 'page_view')         AS page_view_count,
-            countIf(event_type = 'add_to_cart')       AS add_to_cart_count,
-            countIf(event_type = 'checkout_started')  AS checkout_started_count,
-            uniqExact(session_id)                     AS session_count
-          FROM engageiq.events
-          WHERE merchant_id = {merchantId:String}
-            AND (
-              customer_id = {customerId:String}
-              OR has({anonIds:Array(String)}, anon_id)
-            )
-        `
-      : `
-          SELECT
-            countIf(event_type = 'page_view')         AS page_view_count,
-            countIf(event_type = 'add_to_cart')       AS add_to_cart_count,
-            countIf(event_type = 'checkout_started')  AS checkout_started_count,
-            uniqExact(session_id)                     AS session_count
-          FROM engageiq.events
-          WHERE merchant_id = {merchantId:String}
-            AND customer_id = {customerId:String}
-        `
+    const whereExtra = extraConditions.length > 0
+      ? `OR (${extraConditions.join(' OR ')})`
+      : ''
+
+    const query = `
+        SELECT
+          countIf(event_type = 'page_view')         AS page_view_count,
+          countIf(event_type = 'add_to_cart')       AS add_to_cart_count,
+          countIf(event_type = 'checkout_started')  AS checkout_started_count,
+          uniqExact(session_id)                     AS session_count
+        FROM engageiq.events
+        WHERE merchant_id = {merchantId:String}
+          AND (customer_id = {customerId:String} ${whereExtra})
+      `
 
     const queryParams: Record<string, unknown> = { merchantId, customerId }
-    if (hasAnonIds) {
-      queryParams.anonIds = anonIds
-    }
+    if (anonIds.length > 0) queryParams.anonIds = anonIds
+    if (mergedFromIds.length > 0) queryParams.mergedFromIds = mergedFromIds
 
     const result = await clickhouse.query({
       query,
@@ -125,7 +117,13 @@ export async function getCustomerProfile(
     throw err
   }
 
-  const eventStats = await fetchEventStats(merchantId, customerId, customer.anonIds)
+  const mergedFromCustomers = await prisma.customer.findMany({
+    where: { mergedIntoId: customerId, merchantId },
+    select: { id: true },
+  })
+  const mergedFromIds = mergedFromCustomers.map((c) => c.id)
+
+  const eventStats = await fetchEventStats(merchantId, customerId, customer.anonIds, mergedFromIds)
 
   const profile: EnrichedCustomerProfile = {
     // Core identity

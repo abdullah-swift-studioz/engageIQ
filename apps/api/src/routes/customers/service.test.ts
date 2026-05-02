@@ -152,6 +152,8 @@ function makeCustomerRow() {
 describe('getCustomerProfile', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    // Default: no customers were merged into the queried profile
+    vi.mocked(prisma.customer.findMany).mockResolvedValue([] as never)
   })
 
   it('returns enriched profile with all sections populated', async () => {

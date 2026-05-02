@@ -1,6 +1,8 @@
 import type { FastifyRequest, FastifyReply } from 'fastify'
 import { getCustomerProfile, listCustomers } from './service.js'
-import { GetCustomerParamsSchema, GetCustomersQuerySchema } from './schema.js'
+import { mergeCustomers } from '../../services/merge.service.js'
+import { GetCustomerParamsSchema, GetCustomersQuerySchema, MergeCustomersBodySchema } from './schema.js'
+import type { MergeResult } from '@engageiq/shared'
 
 export async function getCustomerHandler(
   request: FastifyRequest,
@@ -43,6 +45,76 @@ export async function getCustomerHandler(
       error: {
         code: 'INTERNAL_ERROR',
         message: 'Failed to fetch customer profile',
+      },
+    })
+  }
+}
+
+export async function mergeCustomersHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const bodyParsed = MergeCustomersBodySchema.safeParse(request.body)
+  if (!bodyParsed.success) {
+    await reply.status(400).send({
+      success: false,
+      error: {
+        code: 'VALIDATION_ERROR',
+        message: 'Invalid request body',
+        details: bodyParsed.error.flatten(),
+      },
+    })
+    return
+  }
+
+  const merchantId = request.user.merchantId
+  const { customerId1, customerId2 } = bodyParsed.data
+
+  try {
+    const result: MergeResult = await mergeCustomers(merchantId, customerId1, customerId2)
+    await reply.status(200).send({ success: true, data: result })
+  } catch (err) {
+    if (err instanceof Error) {
+      if (err.message === 'MERGE_SAME_CUSTOMER') {
+        await reply.status(400).send({
+          success: false,
+          error: {
+            code: 'MERGE_SAME_CUSTOMER',
+            message: 'Cannot merge a profile with itself',
+          },
+        })
+        return
+      }
+
+      if (err.message === 'CUSTOMER_NOT_FOUND') {
+        await reply.status(404).send({
+          success: false,
+          error: {
+            code: 'CUSTOMER_NOT_FOUND',
+            message: 'Customer not found',
+          },
+        })
+        return
+      }
+
+      if (err.message === 'CUSTOMER_ALREADY_MERGED') {
+        await reply.status(409).send({
+          success: false,
+          error: {
+            code: 'CUSTOMER_ALREADY_MERGED',
+            message: 'One or both profiles have already been merged into another profile',
+          },
+        })
+        return
+      }
+    }
+
+    request.log.error({ err }, 'Failed to merge customers')
+    await reply.status(500).send({
+      success: false,
+      error: {
+        code: 'INTERNAL_ERROR',
+        message: 'Failed to merge customers',
       },
     })
   }
