@@ -1,7 +1,7 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-04-29
-> Current phase: Phase 2 — Shopify Integration & Data Ingestion (Complete)
+> Last updated: 2026-05-02
+> Current phase: Phase 3 — Unified Customer Profiles (In Progress)
 
 ## Project Summary
 
@@ -37,12 +37,13 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 - **2.3 — Historical Backfill** (2026-04-29) — Shopify Admin REST client with rate limiting; BullMQ backfill worker (customers phase + orders phase + batch aggregate recalc); Redis progress tracking; `GET /backfill/status` + `POST /backfill/trigger` routes; auto-enqueued on OAuth install
 - **2.4 — Storefront Event Tracking SDK** (2026-04-29) — Vanilla JS IIFE SDK (2.2 KB gzipped); tracks all 13 events; anon cookie + session storage; auto-init from `data-merchant-id`; `POST /v1/sdk/events` (ClickHouse ingestion); `POST /v1/sdk/identify` (identity stitching with stub customer creation); App Embed Block extension stub; Prisma migration for `customer.anonIds[]`
 - **3.1 — Profile Aggregation & Real-Time Updates** (2026-05-02) — `EnrichedCustomerProfile` shared type; `GET /api/v1/customers/:id` (full profile: PostgreSQL + ClickHouse event stats merged); `GET /api/v1/customers` (paginated list + search); `syncSessionCount` + `recalculateCodProfile` fire-and-forget sync services wired into SDK events, order webhooks, and refund webhooks; Remix customer list + detail pages (11 sections, all fields); 11 Vitest tests passing
+- **3.2 — Identity Resolution** (2026-05-02) — `mergeCustomers()` service with canonical determination (older createdAt), full relation migration (orders, cod_orders, segment/journey memberships, abandoned_checkouts), anonIds union, dedup for overlapping memberships; `POST /api/v1/customers/merge`; auto-merge in `stitchIdentity` when SDK login shopify_customer_id matches a different profile than anon_id's stub; ClickHouse event query extended to include merged-from customer IDs; Remix merge UI (/customers/:id/merge); `MergeResult` type in @engageiq/shared; 21 Vitest tests passing
 
 ## Active Phase
 
 Phase 3 — Unified Customer Profiles (In Progress)
 - [x] 3.1 Profile Aggregation & Real-Time Updates (2026-05-02)
-- [ ] 3.2 Identity Resolution
+- [x] 3.2 Identity Resolution (2026-05-02)
 - [ ] 3.3 Custom Event API & Multi-Store Unification
 
 ## Completed Phase
