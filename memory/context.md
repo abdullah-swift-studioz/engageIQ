@@ -1,6 +1,6 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-05-02
+> Last updated: 2026-06-02
 > Current phase: Phase 3 — Unified Customer Profiles (In Progress)
 
 ## Project Summary
@@ -38,15 +38,22 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 - **2.4 — Storefront Event Tracking SDK** (2026-04-29) — Vanilla JS IIFE SDK (2.2 KB gzipped); tracks all 13 events; anon cookie + session storage; auto-init from `data-merchant-id`; `POST /v1/sdk/events` (ClickHouse ingestion); `POST /v1/sdk/identify` (identity stitching with stub customer creation); App Embed Block extension stub; Prisma migration for `customer.anonIds[]`
 - **3.1 — Profile Aggregation & Real-Time Updates** (2026-05-02) — `EnrichedCustomerProfile` shared type; `GET /api/v1/customers/:id` (full profile: PostgreSQL + ClickHouse event stats merged); `GET /api/v1/customers` (paginated list + search); `syncSessionCount` + `recalculateCodProfile` fire-and-forget sync services wired into SDK events, order webhooks, and refund webhooks; Remix customer list + detail pages (11 sections, all fields); 11 Vitest tests passing
 - **3.2 — Identity Resolution** (2026-05-02) — `mergeCustomers()` service with canonical determination (older createdAt), full relation migration (orders, cod_orders, segment/journey memberships, abandoned_checkouts), anonIds union, dedup for overlapping memberships; `POST /api/v1/customers/merge`; auto-merge in `stitchIdentity` when SDK login shopify_customer_id matches a different profile than anon_id's stub; ClickHouse event query extended to include merged-from customer IDs; Remix merge UI (/customers/:id/merge); `MergeResult` type in @engageiq/shared; 21 Vitest tests passing
+- **3.3 — Custom Event API & Multi-Store Unification** (2026-06-02) — P1 bug fix: stub customer upgrade in customer.processor.ts prevents @@unique([merchantId, email]) constraint violation on Shopify `customers/create` webhook; `POST /api/v1/events` Custom Event API (API key auth, 1000 req/min rate limit, ClickHouse ingestion, HTTP 201); multi-store.service.ts with assignGroupCustomerId (agency-scoped group linking via email/phone match) and getGroupMembers; `GET /api/v1/customers/:id/group` group profile endpoint; Cross-Store Presence section in Remix customer detail page; 15 Vitest tests passing
 
 ## Active Phase
 
-Phase 3 — Unified Customer Profiles (In Progress)
-- [x] 3.1 Profile Aggregation & Real-Time Updates (2026-05-02)
-- [x] 3.2 Identity Resolution (2026-05-02)
-- [ ] 3.3 Custom Event API & Multi-Store Unification
+Phase 4 — Segment Builder & Journey Executor (In Progress)
+- [ ] 4.1 Segment Builder — Dynamic Conditions
+- [ ] 4.2 Journey Executor — Entry / Exit Evaluation
 
 ## Completed Phase
+
+Phase 3 — Unified Customer Profiles (COMPLETE ✓)
+- [x] 3.1 Profile Aggregation & Real-Time Updates (2026-05-02)
+- [x] 3.2 Identity Resolution (2026-05-02)
+- [x] 3.3 Custom Event API & Multi-Store Unification (2026-06-02)
+
+## Completed Phases
 
 Phase 2 — Shopify Integration & Data Ingestion ✓
 - [x] 2.1 Shopify App Setup & OAuth
