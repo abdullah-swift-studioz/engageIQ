@@ -1,6 +1,7 @@
 import { prisma } from '@engageiq/db'
 import type { ShopifyCustomerPayload } from '@engageiq/shared'
 import { normalizePhone, parseTags } from './utils.js'
+import { assignGroupCustomerId } from '../services/multi-store.service.js'
 
 export async function processCustomerUpsert(
   merchantId: string,
@@ -42,6 +43,7 @@ export async function processCustomerUpsert(
           isSubscribedEmail: payload.accepts_marketing,
         },
       })
+      assignGroupCustomerId(stub.id, merchantId, payload.email, phone).catch(() => {/* best-effort */})
       return stub.id
     }
   }
@@ -74,6 +76,8 @@ export async function processCustomerUpsert(
     },
     select: { id: true },
   })
+
+  assignGroupCustomerId(customer.id, merchantId, payload.email ?? null, phone).catch(() => {/* best-effort */})
 
   return customer.id
 }

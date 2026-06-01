@@ -2,6 +2,7 @@ import { prisma } from '@engageiq/db'
 import { Prisma } from '@prisma/client'
 import type { SdkIdentifyPayload } from '@engageiq/shared'
 import { mergeCustomers } from './merge.service.js'
+import { assignGroupCustomerId } from './multi-store.service.js'
 
 export interface StitchResult {
   customerId: string | null
@@ -86,6 +87,7 @@ export async function stitchIdentity(payload: SdkIdentifyPayload): Promise<Stitc
             lastSeenAt: new Date(),
           },
         })
+        assignGroupCustomerId(customer.id, merchant_id, email ?? null, normalizedPhone).catch(() => {/* best-effort */})
         return { customerId: customer.id, isNewCustomer: true }
       } catch (err) {
         // P2002: unique constraint violation — a concurrent request created the same stub
