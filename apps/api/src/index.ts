@@ -13,6 +13,7 @@ import shopifyRoutes from './routes/shopify.js'
 import backfillRoutes from './routes/backfill.js'
 import sdkRoutes from './routes/sdk.js'
 import customersRoutes from './routes/customers/index.js'
+import eventsRoutes from './routes/events/index.js'
 
 const app = Fastify({
   logger: {
@@ -62,6 +63,7 @@ await app.register(shopifyRoutes, { prefix: '/shopify' })
 await app.register(backfillRoutes, { prefix: '/backfill' })
 await app.register(sdkRoutes)
 await app.register(customersRoutes, { prefix: '/api/v1/customers' })
+await app.register(eventsRoutes, { prefix: '/api/v1/events' })
 
 app.get('/health', () => ({
   status: 'ok',
