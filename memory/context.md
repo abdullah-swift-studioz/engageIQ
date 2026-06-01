@@ -83,6 +83,7 @@ Phase 2 — Shopify Integration & Data Ingestion ✓
 - SDK `add_to_cart` AJAX button listener covers common patterns; theme-specific custom classes may need additional config
 - Identity stitching: concurrent anon visitors providing the same email before webhook arrives can cause a `@@unique` conflict on stub customer create — deferred to Phase 3 identity resolution
 - SDK is served by the API at `/sdk.js` — should be fronted by CDN in production for performance
+- **[P1 — fix before Phase 4]** `customers/create` webhook processor does not merge stubs: when a stub customer exists (created by SDK email capture) and the Shopify `customers/create` webhook fires for the same email, the upsert-by-`shopifyCustomerId` finds no match and attempts to create a new record, which fails on `@@unique([merchantId, email])`. The constraint violation is currently silently swallowed, leaving the stub unlinked from the Shopify-confirmed record. Every merchant onboarding will trigger this for any customer who submitted their email before placing their first order. Fix: in `apps/api/src/processors/customer.processor.ts`, before the upsert, check for an existing stub with the same email (no `shopifyCustomerId`) and call `mergeCustomers()` if found. Implement as the first task of 3.3 or as a dedicated pre-Phase-4 cleanup.
 
 ## Key Decisions Made
 
