@@ -34,3 +34,8 @@ export const MergeCustomersBodySchema = z.object({
 })
 
 export type MergeCustomersBody = z.infer<typeof MergeCustomersBodySchema>
+
+export const GetGroupParamsSchema = z.object({
+  id: z.string().cuid(),
+})
+export type GetGroupParams = z.infer<typeof GetGroupParamsSchema>
