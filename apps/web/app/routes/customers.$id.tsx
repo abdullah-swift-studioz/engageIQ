@@ -12,9 +12,23 @@ export const meta: MetaFunction<typeof loader> = ({ data }) => {
   return [{ title: `${name} — EngageIQ` }]
 }
 
+type GroupMemberItem = {
+  customerId: string
+  merchantId: string
+  merchantName: string
+  email: string | null
+  phone: string | null
+  firstName: string | null
+  lastName: string | null
+  totalOrders: number
+  totalSpent: string
+  createdAt: string
+}
+
 interface LoaderData {
   customer: EnrichedCustomerProfile | null
   error: string | null
+  groupMembers: GroupMemberItem[]
 }
 
 export async function loader({ params }: LoaderFunctionArgs) {
@@ -39,6 +53,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
       return json<LoaderData>({
         customer: null,
         error: `API error ${res.status}: ${text}`,
+        groupMembers: [],
       })
     }
 
@@ -48,14 +63,30 @@ export async function loader({ params }: LoaderFunctionArgs) {
     }
 
     if (!body.success) {
-      return json<LoaderData>({ customer: null, error: 'API returned an error.' })
+      return json<LoaderData>({ customer: null, error: 'API returned an error.', groupMembers: [] })
     }
 
-    return json<LoaderData>({ customer: body.data, error: null })
+    let groupMembers: GroupMemberItem[] = []
+    if (body.data.groupCustomerId) {
+      try {
+        const groupRes = await fetch(
+          `${apiUrl}/api/v1/customers/${id}/group`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        if (groupRes.ok) {
+          const groupJson = (await groupRes.json()) as { data: GroupMemberItem[] }
+          groupMembers = groupJson.data
+        }
+      } catch {
+        // best-effort — don't break profile page if group fetch fails
+      }
+    }
+
+    return json<LoaderData>({ customer: body.data, error: null, groupMembers })
   } catch (err) {
     if (err instanceof Response) throw err
     const message = err instanceof Error ? err.message : 'Unknown error'
-    return json<LoaderData>({ customer: null, error: `Failed to reach API: ${message}` })
+    return json<LoaderData>({ customer: null, error: `Failed to reach API: ${message}`, groupMembers: [] })
   }
 }
 
@@ -187,7 +218,7 @@ function EmptyTableRow({ colSpan, message }: { colSpan: number; message: string 
 // ─── Main page component ─────────────────────────────────────────────────────
 
 export default function CustomerDetail() {
-  const { customer, error } = useLoaderData<typeof loader>()
+  const { customer, error, groupMembers } = useLoaderData<typeof loader>()
 
   if (error && !customer) {
     return (
@@ -671,6 +702,41 @@ export default function CustomerDetail() {
           </tbody>
         </table>
       </section>
+
+      {/* ── Section 12: Cross-Store Presence ────────────────────── */}
+      {groupMembers.length > 0 && (
+        <section className="rounded border p-4">
+          <h2 className="mb-3 font-semibold text-gray-700">
+            Cross-Store Presence ({groupMembers.length} stores)
+          </h2>
+          <div className="space-y-3">
+            {groupMembers.map((member) => (
+              <div
+                key={member.customerId}
+                className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
+              >
+                <div>
+                  <span className="font-medium">{member.merchantName}</span>
+                  {member.firstName && (
+                    <span className="ml-2 text-gray-600">
+                      {member.firstName} {member.lastName}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-6 text-gray-600">
+                  <span>{member.totalOrders} orders</span>
+                  <span>PKR {member.totalSpent}</span>
+                  {member.customerId !== customer.id && (
+                    <a href={`/customers/${member.customerId}`} className="text-blue-600 hover:underline">
+                      View profile →
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }
