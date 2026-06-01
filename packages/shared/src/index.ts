@@ -11,6 +11,7 @@ export type {
   EnrichedCustomerProfile, CustomerSegmentMembership, CustomerJourneyEnrollment,
   CustomerRecentOrder, CustomerRecentCheckout, CustomerEventStats,
   MergeResult,
+  CustomEventPayload, GroupMember,
 } from './types.js'
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'

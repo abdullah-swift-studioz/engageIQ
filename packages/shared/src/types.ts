@@ -342,3 +342,28 @@ export interface MergeResult {
   mergedAt: string         // ISO timestamp
   mergeReason: string      // e.g. "manual_dashboard_merge", "sdk_login_shopify_id_match"
 }
+
+// ─── Custom Events (Milestone 3.3) ───────────────────────────────────────────
+
+export interface CustomEventPayload {
+  event_name: string
+  customer_id?: string
+  anon_id?: string
+  properties?: Record<string, unknown>
+  timestamp?: string  // ISO 8601; defaults to server time if omitted
+}
+
+// ─── Multi-Store Group (Milestone 3.3) ───────────────────────────────────────
+
+export interface GroupMember {
+  customerId: string
+  merchantId: string
+  merchantName: string
+  email: string | null
+  phone: string | null
+  firstName: string | null
+  lastName: string | null
+  totalOrders: number
+  totalSpent: string  // Decimal serialised as string
+  createdAt: string
+}
