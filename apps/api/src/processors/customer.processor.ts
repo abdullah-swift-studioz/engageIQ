@@ -13,6 +13,39 @@ export async function processCustomerUpsert(
   const country = payload.default_address?.country_code ?? 'PK'
   const tags = parseTags(payload.tags)
 
+  // P1 fix: if a stub customer exists with the same email (shopifyCustomerId is null,
+  // created by SDK before the Shopify webhook arrived), upgrade it in place.
+  // A direct upsert would fail on @@unique([merchantId, email]).
+  if (payload.email) {
+    const stub = await prisma.customer.findFirst({
+      where: {
+        merchantId,
+        email: payload.email,
+        shopifyCustomerId: null,
+        mergedIntoId: null,
+      },
+      select: { id: true },
+    })
+    if (stub) {
+      await prisma.customer.update({
+        where: { id: stub.id },
+        data: {
+          shopifyCustomerId,
+          email: payload.email,
+          phone,
+          firstName: payload.first_name ?? null,
+          lastName: payload.last_name ?? null,
+          city,
+          province,
+          country,
+          tags,
+          isSubscribedEmail: payload.accepts_marketing,
+        },
+      })
+      return stub.id
+    }
+  }
+
   const customer = await prisma.customer.upsert({
     where: { merchantId_shopifyCustomerId: { merchantId, shopifyCustomerId } },
     create: {
