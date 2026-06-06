@@ -1,10 +1,12 @@
 import type { Job } from 'bullmq'
-import type { ShopifyWebhookJob, BackfillJobData } from '@engageiq/shared'
+import type { ShopifyWebhookJob, BackfillJobData, SegmentEvaluateJobPayload } from '@engageiq/shared'
 import { createWebhookWorker } from './workers/webhook.worker.js'
 import { createBackfillWorker } from './workers/backfill.worker.js'
+import { createSegmentEvaluateWorker } from './workers/segment-evaluate.worker.js'
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
+const segmentEvaluateWorker = createSegmentEvaluateWorker()
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -34,13 +36,25 @@ backfillWorker.on('progress', (job: Job<BackfillJobData>, progress: unknown) => 
   console.info(`[backfill-worker] progress  job=${job.id} merchantId=${job.data.merchantId} ${progress}%`)
 })
 
+segmentEvaluateWorker.on('completed', (job: Job<SegmentEvaluateJobPayload>) => {
+  console.info(`[segment-evaluate-worker] completed  job=${job.id} segmentId=${job.data.segmentId}`)
+})
+
+segmentEvaluateWorker.on('failed', (job: Job<SegmentEvaluateJobPayload> | undefined, err: Error) => {
+  console.error(`[segment-evaluate-worker] failed    job=${job?.id} segmentId=${job?.data.segmentId} error=${err.message}`)
+})
+
+segmentEvaluateWorker.on('error', (err: Error) => {
+  console.error('[segment-evaluate-worker] worker error:', err)
+})
+
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
-  await Promise.all([webhookWorker.close(), backfillWorker.close()])
+  await Promise.all([webhookWorker.close(), backfillWorker.close(), segmentEvaluateWorker.close()])
   process.exit(0)
 }
 
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
-console.info('[workers] started — webhook-ingestion + backfill queues')
+console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate queues')
