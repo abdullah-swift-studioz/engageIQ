@@ -55,7 +55,7 @@ export default function SegmentDetailPage() {
   async function handleSave(name: string, description: string, conditions: SegmentGroup) {
     const res = await fetch(`/api/v1/segments/${segment!.id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name, description, conditions }),
     })
     if (!res.ok) {
@@ -66,11 +66,18 @@ export default function SegmentDetailPage() {
   }
 
   async function handleReEvaluate() {
-    await fetch(`${apiUrl}/api/v1/segments/${segment!.id}/evaluate`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    alert('Evaluation queued. Refresh in a few seconds to see updated member count.')
+    try {
+      const res = await fetch(`${apiUrl}/api/v1/segments/${segment!.id}/evaluate`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        throw new Error(`Server responded with status ${res.status}`)
+      }
+      alert('Evaluation queued. Refresh in a few seconds to see updated member count.')
+    } catch (err) {
+      alert(`Re-evaluate failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 
   return (
