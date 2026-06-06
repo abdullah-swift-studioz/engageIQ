@@ -8,6 +8,7 @@ import { prisma, insertEvents } from '@engageiq/db'
 import type { EngageIQEvent } from '@engageiq/db'
 import { stitchIdentity } from '../services/identity.service.js'
 import { syncSessionCount } from '../services/profile-sync.service.js'
+import { evaluateProfileMemberships } from '../services/segment-evaluator.js'
 
 // Resolve path to the pre-built SDK file relative to this source file.
 // In dev (tsx): __dirname = apps/api/src/routes/
@@ -144,6 +145,9 @@ export default function sdkRoutes(fastify: FastifyInstance): void {
               if (cust) {
                 syncSessionCount(merchantId, customerId, cust.anonIds).catch(
                   (err: unknown) => fastify.log.error({ err }, 'syncSessionCount failed'),
+                )
+                evaluateProfileMemberships(customerId, merchantId).catch(
+                  (err: unknown) => fastify.log.error({ err }, 'evaluateProfileMemberships failed'),
                 )
               }
             })

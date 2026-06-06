@@ -2,6 +2,7 @@ import { prisma } from '@engageiq/db'
 import type { ShopifyCustomerPayload } from '@engageiq/shared'
 import { normalizePhone, parseTags } from './utils.js'
 import { assignGroupCustomerId } from '../services/multi-store.service.js'
+import { evaluateProfileMemberships } from '../services/segment-evaluator.js'
 
 export async function processCustomerUpsert(
   merchantId: string,
@@ -44,6 +45,7 @@ export async function processCustomerUpsert(
         },
       })
       assignGroupCustomerId(stub.id, merchantId, payload.email, phone).catch(() => {/* best-effort */})
+      evaluateProfileMemberships(stub.id, merchantId).catch(() => {/* best-effort */})
       return stub.id
     }
   }
@@ -78,6 +80,7 @@ export async function processCustomerUpsert(
   })
 
   assignGroupCustomerId(customer.id, merchantId, payload.email ?? null, phone).catch(() => {/* best-effort */})
+  evaluateProfileMemberships(customer.id, merchantId).catch(() => {/* best-effort */})
 
   return customer.id
 }
