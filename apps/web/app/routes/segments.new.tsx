@@ -8,11 +8,13 @@ export const meta: MetaFunction = () => [{ title: 'New Segment — EngageIQ' }]
 export default function NewSegmentPage() {
   const navigate = useNavigate()
 
+  const apiUrl = typeof window !== 'undefined' ? '' : (process.env['API_URL'] ?? 'http://localhost:3001')
+  const token = typeof window !== 'undefined' ? '' : (process.env['DEV_TOKEN'] ?? '')
+
   async function handleSave(name: string, description: string, conditions: SegmentGroup) {
-    const apiUrl = '/api'
-    const res = await fetch(`${apiUrl}/v1/segments`, {
+    const res = await fetch(`${apiUrl}/api/v1/segments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name, description, conditions }),
     })
     if (res.ok) {

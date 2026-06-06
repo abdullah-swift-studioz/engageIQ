@@ -45,6 +45,8 @@ export async function loader({ params }: LoaderFunctionArgs) {
 export default function SegmentDetailPage() {
   const { segment, error } = useLoaderData<LoaderData>()
   const navigate = useNavigate()
+  const apiUrl = typeof window !== 'undefined' ? '' : (process.env['API_URL'] ?? 'http://localhost:3001')
+  const token = typeof window !== 'undefined' ? '' : (process.env['DEV_TOKEN'] ?? '')
 
   if (error || !segment) {
     return <div style={{ padding: '2rem', color: 'red' }}>{error ?? 'Segment not found'}</div>
@@ -64,8 +66,9 @@ export default function SegmentDetailPage() {
   }
 
   async function handleReEvaluate() {
-    await fetch(`/api/v1/segments/${segment!.id}/evaluate`, {
+    await fetch(`${apiUrl}/api/v1/segments/${segment!.id}/evaluate`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
     })
     alert('Evaluation queued. Refresh in a few seconds to see updated member count.')
   }
