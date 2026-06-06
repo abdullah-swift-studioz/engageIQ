@@ -147,6 +147,10 @@ export async function updateSegmentHandler(
   }
 
   const updated = await updateSegment(merchantId, paramsParsed.data.id, parsed.data)
+  if (!updated) {
+    await notFound(reply)
+    return
+  }
 
   if (parsed.data.conditions !== undefined) {
     await segmentEvaluateQueue.add(SEGMENT_EVALUATE, {

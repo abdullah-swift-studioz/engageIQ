@@ -50,6 +50,15 @@ export async function updateSegment(
   segmentId: string,
   body: UpdateSegmentBody,
 ) {
+  // Defense-in-depth: verify ownership before mutating, even though the controller
+  // also pre-checks. This closes the TOCTOU window and ensures the query is always
+  // scoped by merchantId per the multi-tenancy hard rule.
+  const existing = await prisma.segment.findFirst({
+    where: { id: segmentId, merchantId },
+    select: { id: true },
+  })
+  if (!existing) return null
+
   return prisma.segment.update({
     where: { id: segmentId },
     data: {
@@ -62,6 +71,13 @@ export async function updateSegment(
 }
 
 export async function deleteSegment(merchantId: string, segmentId: string) {
+  // Defense-in-depth: verify ownership before deleting, scoped by merchantId.
+  const existing = await prisma.segment.findFirst({
+    where: { id: segmentId, merchantId },
+    select: { id: true },
+  })
+  if (!existing) return null
+
   return prisma.segment.delete({
     where: { id: segmentId },
   })
