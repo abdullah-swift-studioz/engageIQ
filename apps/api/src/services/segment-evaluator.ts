@@ -1,4 +1,5 @@
 import type { Prisma } from '@engageiq/db'
+import { prisma } from '@engageiq/db'
 import type { SegmentGroup, SegmentCondition, ConditionOperator, EnrichedCustomerProfile } from '@engageiq/shared'
 import { FIELD_REGISTRY } from '../lib/segments/field-registry.js'
 
@@ -225,4 +226,76 @@ export function evaluateProfile(
       : evaluateProfile(rule, profile),
   )
   return group.match === 'all' ? results.every(Boolean) : results.some(Boolean)
+}
+
+// ─── Profile membership helper ────────────────────────────────────────────────
+
+function prismaCustomerToProfileLike(
+  customer: Record<string, unknown>,
+): EnrichedCustomerProfile {
+  return {
+    ...customer,
+    totalSpent: String(
+      typeof customer['totalSpent'] === 'object' && customer['totalSpent'] !== null &&
+      'toNumber' in (customer['totalSpent'] as object)
+        ? (customer['totalSpent'] as { toNumber(): number }).toNumber()
+        : customer['totalSpent'],
+    ),
+    avgOrderValue: String(
+      typeof customer['avgOrderValue'] === 'object' && customer['avgOrderValue'] !== null &&
+      'toNumber' in (customer['avgOrderValue'] as object)
+        ? (customer['avgOrderValue'] as { toNumber(): number }).toNumber()
+        : customer['avgOrderValue'],
+    ),
+    ltv90d: customer['ltv90d'] == null
+      ? null
+      : String(
+          typeof customer['ltv90d'] === 'object' && 'toNumber' in (customer['ltv90d'] as object)
+            ? (customer['ltv90d'] as { toNumber(): number }).toNumber()
+            : customer['ltv90d'],
+        ),
+    eventStats: { totalEvents: 0, lastEventAt: null, topEvents: [] },
+    segmentMemberships: [],
+    journeyEnrollments: [],
+    recentOrders: [],
+    recentCheckouts: [],
+  } as unknown as EnrichedCustomerProfile
+}
+
+export async function evaluateProfileMemberships(
+  customerId: string,
+  merchantId: string,
+): Promise<void> {
+  const segments = await prisma.segment.findMany({
+    where: { merchantId, isDynamic: true },
+    select: { id: true, conditions: true },
+  })
+  if (segments.length === 0) return
+
+  const customer = await prisma.customer.findFirst({
+    where: { id: customerId, merchantId },
+  })
+  if (!customer) return
+
+  const profile = prismaCustomerToProfileLike(customer as unknown as Record<string, unknown>)
+
+  for (const segment of segments) {
+    const group = segment.conditions as SegmentGroup
+    const isMember = evaluateProfile(group, profile)
+
+    const existing = await prisma.segmentMembership.findFirst({
+      where: { segmentId: segment.id, customerId, exitedAt: null },
+    })
+
+    if (isMember && !existing) {
+      await prisma.segmentMembership.create({
+        data: { segmentId: segment.id, customerId },
+      })
+    } else if (!isMember && existing) {
+      await prisma.segmentMembership.update({
+        where: { id: existing.id },
+        data: { exitedAt: new Date() },
+      })
+    }
+  }
 }

@@ -350,3 +350,81 @@ describe('SQL vs in-memory parity', () => {
     }
   })
 })
+
+import { evaluateProfileMemberships } from './segment-evaluator.js'
+import { prisma } from '@engageiq/db'
+
+describe('evaluateProfileMemberships', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('inserts membership when profile matches and none exists', async () => {
+    const profile = makeProfile({ totalOrders: 10 })
+    const group: SegmentGroup = {
+      match: 'all',
+      rules: [{ field: 'total_orders', operator: 'gt', value: 5 }],
+    }
+    vi.mocked(prisma.segment.findMany).mockResolvedValue([
+      { id: 'seg_1', conditions: group, isDynamic: true } as never,
+    ])
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({
+      ...profile,
+      totalSpent: { toNumber: () => 50000 } as never,
+      avgOrderValue: { toNumber: () => 5000 } as never,
+    } as never)
+    vi.mocked(prisma.segmentMembership.findFirst).mockResolvedValue(null)
+    vi.mocked(prisma.segmentMembership.create).mockResolvedValue({} as never)
+
+    await evaluateProfileMemberships('cust_1', 'merchant_123')
+
+    expect(prisma.segmentMembership.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ segmentId: 'seg_1', customerId: 'cust_1' }),
+      }),
+    )
+  })
+
+  it('sets exitedAt when profile no longer matches existing membership', async () => {
+    const profile = makeProfile({ totalOrders: 2 })
+    const group: SegmentGroup = {
+      match: 'all',
+      rules: [{ field: 'total_orders', operator: 'gt', value: 5 }],
+    }
+    vi.mocked(prisma.segment.findMany).mockResolvedValue([
+      { id: 'seg_1', conditions: group, isDynamic: true } as never,
+    ])
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({
+      ...profile,
+      totalSpent: { toNumber: () => 1000 } as never,
+      avgOrderValue: { toNumber: () => 500 } as never,
+    } as never)
+    vi.mocked(prisma.segmentMembership.findFirst).mockResolvedValue({
+      id: 'mem_1',
+      segmentId: 'seg_1',
+      customerId: 'cust_1',
+      exitedAt: null,
+    } as never)
+    vi.mocked(prisma.segmentMembership.update).mockResolvedValue({} as never)
+
+    await evaluateProfileMemberships('cust_1', 'merchant_123')
+
+    expect(prisma.segmentMembership.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'mem_1' },
+        data: expect.objectContaining({ exitedAt: expect.any(Date) }),
+      }),
+    )
+  })
+
+  it('does nothing when customer not found', async () => {
+    vi.mocked(prisma.segment.findMany).mockResolvedValue([
+      { id: 'seg_1', conditions: { match: 'all', rules: [] }, isDynamic: true } as never,
+    ])
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue(null)
+
+    await evaluateProfileMemberships('nonexistent', 'merchant_123')
+
+    expect(prisma.segmentMembership.create).not.toHaveBeenCalled()
+  })
+})
