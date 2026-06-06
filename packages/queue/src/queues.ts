@@ -33,9 +33,15 @@ export const analyticsQueue = new Queue('analytics', {
   defaultJobOptions,
 })
 
+export const segmentEvaluateQueue = new Queue('segment-evaluate', {
+  connection: redisConnection,
+  defaultJobOptions,
+})
+
 export type QueueName =
   | 'webhook-ingestion'
   | 'backfill'
   | 'campaign-send'
   | 'journey-executor'
   | 'analytics'
+  | 'segment-evaluate'

@@ -367,3 +367,31 @@ export interface GroupMember {
   totalSpent: string  // Decimal serialised as string
   createdAt: string
 }
+
+// ─── Segment Builder ─────────────────────────────────────────────────────────
+
+export type ConditionOperator =
+  | 'eq' | 'neq' | 'gt' | 'gte' | 'lt' | 'lte' | 'between'
+  | 'in' | 'not_in' | 'contains' | 'not_contains'
+  | 'is_true' | 'is_false'
+  | 'before' | 'after' | 'within_last_days' | 'more_than_days_ago'
+  | 'is_set' | 'is_not_set'
+  | 'includes_any' | 'includes_all' | 'includes_none'
+
+export interface SegmentCondition {
+  field: string
+  operator: ConditionOperator
+  value: unknown
+}
+
+export interface SegmentGroup {
+  match: 'all' | 'any'
+  rules: Array<SegmentCondition | SegmentGroup>
+}
+
+export const SEGMENT_EVALUATE = 'segment:evaluate' as const
+
+export interface SegmentEvaluateJobPayload {
+  segmentId: string
+  merchantId: string
+}

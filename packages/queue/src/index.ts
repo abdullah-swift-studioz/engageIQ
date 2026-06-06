@@ -5,5 +5,6 @@ export {
   campaignSendQueue,
   journeyExecutorQueue,
   analyticsQueue,
+  segmentEvaluateQueue,
 } from './queues.js'
 export type { QueueName } from './queues.js'

@@ -12,6 +12,8 @@ export type {
   CustomerRecentOrder, CustomerRecentCheckout, CustomerEventStats,
   MergeResult,
   CustomEventPayload, GroupMember,
+  ConditionOperator, SegmentCondition, SegmentGroup, SegmentEvaluateJobPayload,
 } from './types.js'
+export { SEGMENT_EVALUATE } from './types.js'
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'
