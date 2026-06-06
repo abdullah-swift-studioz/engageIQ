@@ -179,7 +179,12 @@ export async function deleteSegmentHandler(
     return
   }
 
-  await deleteSegment(merchantId, paramsParsed.data.id)
+  const deleted = await deleteSegment(merchantId, paramsParsed.data.id)
+  if (!deleted) {
+    await notFound(reply)
+    return
+  }
+
   await reply.status(204).send()
 }
 
