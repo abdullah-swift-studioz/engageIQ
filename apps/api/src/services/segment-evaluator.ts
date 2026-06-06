@@ -1,5 +1,5 @@
 import type { Prisma } from '@engageiq/db'
-import type { SegmentGroup, SegmentCondition, ConditionOperator } from '@engageiq/shared'
+import type { SegmentGroup, SegmentCondition, ConditionOperator, EnrichedCustomerProfile } from '@engageiq/shared'
 import { FIELD_REGISTRY } from '../lib/segments/field-registry.js'
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
@@ -84,4 +84,145 @@ export function compileToPrismaWhere(
       compileGroup(group),
     ],
   }
+}
+
+// ─── In-memory evaluator ──────────────────────────────────────────────────────
+
+function coerceToNumber(val: unknown): number | null {
+  if (val === null || val === undefined) return null
+  if (typeof val === 'number') return val
+  if (typeof val === 'string') return parseFloat(val)
+  if (typeof val === 'object' && 'toNumber' in (val as object)) {
+    return (val as { toNumber(): number }).toNumber()
+  }
+  return null
+}
+
+function coerceToDate(val: unknown): Date | null {
+  if (val === null || val === undefined) return null
+  if (val instanceof Date) return val
+  if (typeof val === 'string') return new Date(val)
+  return null
+}
+
+function evaluateCondition(
+  condition: SegmentCondition,
+  profile: EnrichedCustomerProfile,
+): boolean {
+  const def = FIELD_REGISTRY[condition.field]!
+  const raw = (profile as Record<string, unknown>)[def.profileKey]
+  const val = condition.value
+  const now = Date.now()
+
+  switch (condition.operator as ConditionOperator) {
+    case 'eq': {
+      if (def.type === 'number') {
+        const n = coerceToNumber(raw)
+        const v = coerceToNumber(val)
+        return n !== null && v !== null && n === v
+      }
+      return raw === val
+    }
+    case 'neq': {
+      if (def.type === 'number') {
+        const n = coerceToNumber(raw)
+        const v = coerceToNumber(val)
+        return n === null || v === null || n !== v
+      }
+      return raw !== val
+    }
+    case 'gt': {
+      const n = coerceToNumber(raw)
+      const v = coerceToNumber(val)
+      return n !== null && v !== null && n > v
+    }
+    case 'gte': {
+      const n = coerceToNumber(raw)
+      const v = coerceToNumber(val)
+      return n !== null && v !== null && n >= v
+    }
+    case 'lt': {
+      const n = coerceToNumber(raw)
+      const v = coerceToNumber(val)
+      return n !== null && v !== null && n < v
+    }
+    case 'lte': {
+      const n = coerceToNumber(raw)
+      const v = coerceToNumber(val)
+      return n !== null && v !== null && n <= v
+    }
+    case 'between': {
+      const [min, max] = val as [unknown, unknown]
+      if (def.type === 'date') {
+        const d = coerceToDate(raw)
+        const dMin = coerceToDate(min)
+        const dMax = coerceToDate(max)
+        return d !== null && dMin !== null && dMax !== null && d >= dMin && d <= dMax
+      }
+      const n = coerceToNumber(raw)
+      const mn = coerceToNumber(min)
+      const mx = coerceToNumber(max)
+      return n !== null && mn !== null && mx !== null && n >= mn && n <= mx
+    }
+    case 'in':
+      return Array.isArray(val) && val.includes(raw)
+    case 'not_in':
+      return Array.isArray(val) && !(val as unknown[]).includes(raw)
+    case 'contains':
+      return typeof raw === 'string' && raw.toLowerCase().includes((val as string).toLowerCase())
+    case 'not_contains':
+      return typeof raw === 'string' && !raw.toLowerCase().includes((val as string).toLowerCase())
+    case 'is_true':
+      return raw === true
+    case 'is_false':
+      return raw === false
+    case 'before': {
+      const d = coerceToDate(raw)
+      const v = coerceToDate(val)
+      return d !== null && v !== null && d < v
+    }
+    case 'after': {
+      const d = coerceToDate(raw)
+      const v = coerceToDate(val)
+      return d !== null && v !== null && d > v
+    }
+    case 'within_last_days': {
+      const d = coerceToDate(raw)
+      if (d === null) return false
+      return d >= new Date(now - (val as number) * 86_400_000)
+    }
+    case 'more_than_days_ago': {
+      const d = coerceToDate(raw)
+      if (d === null) return false
+      return d < new Date(now - (val as number) * 86_400_000)
+    }
+    case 'is_set':
+      return raw !== null && raw !== undefined
+    case 'is_not_set':
+      return raw === null || raw === undefined
+    case 'includes_any': {
+      const arr = raw as unknown[]
+      return Array.isArray(arr) && Array.isArray(val) && (val as unknown[]).some((v) => arr.includes(v))
+    }
+    case 'includes_all': {
+      const arr = raw as unknown[]
+      return Array.isArray(arr) && Array.isArray(val) && (val as unknown[]).every((v) => arr.includes(v))
+    }
+    case 'includes_none': {
+      const arr = raw as unknown[]
+      return Array.isArray(arr) && Array.isArray(val) && !(val as unknown[]).some((v) => arr.includes(v))
+    }
+  }
+}
+
+export function evaluateProfile(
+  group: SegmentGroup,
+  profile: EnrichedCustomerProfile,
+): boolean {
+  const results = group.rules.map((rule) =>
+    isCondition(rule)
+      ? evaluateCondition(rule, profile)
+      : evaluateProfile(rule, profile),
+  )
+  return group.match === 'all' ? results.every(Boolean) : results.some(Boolean)
 }
