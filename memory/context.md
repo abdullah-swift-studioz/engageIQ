@@ -1,7 +1,7 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-06-02
-> Current phase: Phase 3 — Unified Customer Profiles (In Progress)
+> Last updated: 2026-06-07
+> Current phase: Phase 4 — Segment Builder & Journey Executor (In Progress)
 
 ## Project Summary
 
@@ -43,7 +43,7 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 ## Active Phase
 
 Phase 4 — Segment Builder & Journey Executor (In Progress)
-- [ ] 4.1 Segment Builder — Dynamic Conditions
+- [x] 4.1 Segment Builder — Dynamic Conditions (2026-06-07)
 - [ ] 4.2 Journey Executor — Entry / Exit Evaluation
 
 ## Completed Phase
