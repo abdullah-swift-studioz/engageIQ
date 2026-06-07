@@ -18,10 +18,10 @@ import { prisma } from '@engageiq/db'
 import { assignGroupCustomerId, getGroupMembers } from './multi-store.service.js'
 
 describe('assignGroupCustomerId', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('does nothing for a standalone merchant (no agency, no children)', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: null } as { id: string; agencyId: string | null })
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: null } as never)
     vi.mocked(prisma.merchant.findMany).mockResolvedValue([])
 
     await assignGroupCustomerId('c1', 'm1', 'a@b.com', null)
@@ -31,8 +31,8 @@ describe('assignGroupCustomerId', () => {
   })
 
   it('does nothing when no cross-store match found', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as { id: string; agencyId: string | null })
-    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as { id: string }[])
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as never)
+    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as never)
     vi.mocked(prisma.customer.findFirst).mockResolvedValue(null)
 
     await assignGroupCustomerId('c1', 'm1', 'a@b.com', null)
@@ -41,9 +41,9 @@ describe('assignGroupCustomerId', () => {
   })
 
   it('creates a new groupCustomerId and assigns to both when match has no existing group', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as { id: string; agencyId: string | null })
-    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as { id: string }[])
-    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'c2', groupCustomerId: null } as { id: string; groupCustomerId: string | null })
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as never)
+    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as never)
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'c2', groupCustomerId: null } as never)
     vi.mocked(prisma.customer.update).mockResolvedValue({} as never)
 
     await assignGroupCustomerId('c1', 'm1', 'a@b.com', null)
@@ -59,9 +59,9 @@ describe('assignGroupCustomerId', () => {
   })
 
   it('joins the existing group when the match already has a groupCustomerId', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as { id: string; agencyId: string | null })
-    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as { id: string }[])
-    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'c2', groupCustomerId: 'existing-group-uuid' } as { id: string; groupCustomerId: string | null })
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as never)
+    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as never)
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'c2', groupCustomerId: 'existing-group-uuid' } as never)
     vi.mocked(prisma.customer.update).mockResolvedValue({} as never)
 
     await assignGroupCustomerId('c1', 'm1', 'a@b.com', null)
@@ -80,11 +80,11 @@ describe('assignGroupCustomerId', () => {
 })
 
 describe('getGroupMembers', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => { vi.clearAllMocks() })
 
   it('returns group members from accessible merchants only', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as { id: string; agencyId: string | null })
-    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as { id: string }[])
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: 'agency-1' } as never)
+    vi.mocked(prisma.merchant.findMany).mockResolvedValue([{ id: 'm2' }, { id: 'm1' }] as never)
     vi.mocked(prisma.customer.findMany).mockResolvedValue([
       {
         id: 'c1',
@@ -125,7 +125,7 @@ describe('getGroupMembers', () => {
   })
 
   it('returns empty array when group has no accessible members', async () => {
-    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: null } as { id: string; agencyId: string | null })
+    vi.mocked(prisma.merchant.findUnique).mockResolvedValue({ id: 'm1', agencyId: null } as never)
     vi.mocked(prisma.merchant.findMany).mockResolvedValue([])
     vi.mocked(prisma.customer.findMany).mockResolvedValue([])
 

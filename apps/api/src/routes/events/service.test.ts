@@ -54,7 +54,7 @@ describe('ingestCustomEvent', () => {
   })
 
   it('includes customer_id in the event when customer exists', async () => {
-    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'customer-1' } as { id: string })
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: 'customer-1' } as never)
 
     await ingestCustomEvent('merchant-1', {
       event_name: 'loyalty_earned',

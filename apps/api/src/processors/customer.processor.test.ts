@@ -36,8 +36,8 @@ describe('processCustomerUpsert', () => {
 
   it('upgrades a stub in place when a matching email stub exists', async () => {
     const stubId = 'stub-customer-1'
-    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: stubId } as { id: string })
-    vi.mocked(prisma.customer.update).mockResolvedValue({ id: stubId } as { id: string })
+    vi.mocked(prisma.customer.findFirst).mockResolvedValue({ id: stubId } as never)
+    vi.mocked(prisma.customer.update).mockResolvedValue({ id: stubId } as never)
 
     const result = await processCustomerUpsert(MERCHANT_ID, basePayload)
 
@@ -55,7 +55,7 @@ describe('processCustomerUpsert', () => {
 
   it('falls through to upsert when no stub exists', async () => {
     vi.mocked(prisma.customer.findFirst).mockResolvedValue(null)
-    vi.mocked(prisma.customer.upsert).mockResolvedValue({ id: 'new-customer-1' } as { id: string })
+    vi.mocked(prisma.customer.upsert).mockResolvedValue({ id: 'new-customer-1' } as never)
 
     const result = await processCustomerUpsert(MERCHANT_ID, basePayload)
 
@@ -65,7 +65,7 @@ describe('processCustomerUpsert', () => {
 
   it('falls through to upsert when payload has no email', async () => {
     const noEmailPayload = { ...basePayload, email: null }
-    vi.mocked(prisma.customer.upsert).mockResolvedValue({ id: 'new-customer-2' } as { id: string })
+    vi.mocked(prisma.customer.upsert).mockResolvedValue({ id: 'new-customer-2' } as never)
 
     await processCustomerUpsert(MERCHANT_ID, noEmailPayload)
 

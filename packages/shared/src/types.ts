@@ -225,7 +225,7 @@ export interface CustomerRecentOrder {
 export interface CustomerRecentCheckout {
   id: string
   totalPrice: string
-  lineItems: unknown
+  lineItems?: unknown
   abandonedAt: string | null
   recoveredAt: string | null
 }
