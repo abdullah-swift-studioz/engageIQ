@@ -1,7 +1,7 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-06-07
-> Current phase: Phase 4 — Segment Builder & Journey Executor (In Progress)
+> Last updated: 2026-06-10
+> Current phase: Phase 5 — Campaign Execution & Channel Integration (Not Started)
 
 ## Project Summary
 
@@ -39,14 +39,14 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 - **3.1 — Profile Aggregation & Real-Time Updates** (2026-05-02) — `EnrichedCustomerProfile` shared type; `GET /api/v1/customers/:id` (full profile: PostgreSQL + ClickHouse event stats merged); `GET /api/v1/customers` (paginated list + search); `syncSessionCount` + `recalculateCodProfile` fire-and-forget sync services wired into SDK events, order webhooks, and refund webhooks; Remix customer list + detail pages (11 sections, all fields); 11 Vitest tests passing
 - **3.2 — Identity Resolution** (2026-05-02) — `mergeCustomers()` service with canonical determination (older createdAt), full relation migration (orders, cod_orders, segment/journey memberships, abandoned_checkouts), anonIds union, dedup for overlapping memberships; `POST /api/v1/customers/merge`; auto-merge in `stitchIdentity` when SDK login shopify_customer_id matches a different profile than anon_id's stub; ClickHouse event query extended to include merged-from customer IDs; Remix merge UI (/customers/:id/merge); `MergeResult` type in @engageiq/shared; 21 Vitest tests passing
 - **3.3 — Custom Event API & Multi-Store Unification** (2026-06-02) — P1 bug fix: stub customer upgrade in customer.processor.ts prevents @@unique([merchantId, email]) constraint violation on Shopify `customers/create` webhook; `POST /api/v1/events` Custom Event API (API key auth, 1000 req/min rate limit, ClickHouse ingestion, HTTP 201); multi-store.service.ts with assignGroupCustomerId (agency-scoped group linking via email/phone match) and getGroupMembers; `GET /api/v1/customers/:id/group` group profile endpoint; Cross-Store Presence section in Remix customer detail page; 15 Vitest tests passing
+- **4.1 — Segment Builder — Dynamic Conditions** (2026-06-07) — ConditionOperator (22 operators), SegmentGroup recursive condition tree, FIELD_REGISTRY (20 fields), condition-validator.ts, segment-evaluator.ts (compileToPrismaWhere SQL path + evaluateProfile in-memory path + evaluateProfileMemberships), BullMQ segment-evaluate worker, full CRUD routes (/api/v1/segments), wired fire-and-forget triggers in customer/identity/SDK paths; Remix segment list + SegmentBuilder component + new/edit pages; 33 Vitest tests passing
+- **4.2 — Journey Executor — Entry / Exit Evaluation** (2026-06-10) — BullMQ single-job-per-step executor: enroll_customer + execute_step (TRIGGER/ACTION/DELAY/CONDITION) + scheduled_fire; checkJourneyEntry (4 trigger types, 3 re-entry rules); checkJourneyExit (exitTrigger matching); dispatchChannel stub; Journey CRUD routes (create/list/get/update/delete/activate/pause/enrollments); fire-and-forget hooks wired in segment-evaluator, order.processor, events/service; buildProfileFromCustomer exported from segment-evaluator; Remix journey list/create/detail/enrollments pages; 20 Vitest tests passing
 
-## Active Phase
+## Completed Phases (recent first)
 
-Phase 4 — Segment Builder & Journey Executor (In Progress)
+Phase 4 — Segment Builder & Journey Executor (COMPLETE ✓)
 - [x] 4.1 Segment Builder — Dynamic Conditions (2026-06-07)
-- [ ] 4.2 Journey Executor — Entry / Exit Evaluation
-
-## Completed Phase
+- [x] 4.2 Journey Executor — Entry / Exit Evaluation (2026-06-10)
 
 Phase 3 — Unified Customer Profiles (COMPLETE ✓)
 - [x] 3.1 Profile Aggregation & Real-Time Updates (2026-05-02)
@@ -75,7 +75,7 @@ Phase 2 — Shopify Integration & Data Ingestion ✓
 - `pino-pretty` referenced in `apps/api/src/index.ts` but not yet in package.json — add before first `dev` run
 - `prettier-plugin-tailwindcss` in `.prettierrc` but only in `apps/web/` devDeps — may need to be hoisted to root for monorepo-wide formatting
 - Prisma migration not run yet (no live DB) — run `pnpm db:migrate` inside `packages/db` after `docker compose up -d`
-- `@@unique([journeyId, customerId])` on `JourneyEnrollment` blocks re-enrollment — Phase 6 executor must delete old record before re-enrolling for ALLOW/RE_ENROLL journeys
+- `JourneyEnrollment` has only `@@index([journeyId, customerId])` — not `@@unique`; multiple enrollments per customer per journey are intentional (ALLOW re-entry rule)
 - `@clickhouse/client` emits benign WARN logs for DDL `exec()` calls (socket closed before response fully read); suppress in production logger config
 - `SENTRY_DSN=` empty value in `.env` fails Zod `url()` validation — commented out in `.env` (keep blank entries commented)
 - `SHOPIFY_API_KEY`, `SHOPIFY_API_SECRET`, `SHOPIFY_SCOPES`, `SHOPIFY_APP_URL` are now **required** — app exits at startup without them; add stub values to `.env` for local dev without a live Shopify store
