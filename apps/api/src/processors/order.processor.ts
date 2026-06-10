@@ -4,6 +4,8 @@ import type { ShopifyOrderPayload, ShopifyLineItem } from '@engageiq/shared'
 import { detectCod, parseTags } from './utils.js'
 import { processCustomerUpsert } from './customer.processor.js'
 import { recalculateCodProfile } from '../services/profile-sync.service.js'
+import { checkJourneyEntry } from '../services/journey-entry.service.js'
+import { checkJourneyExit } from '../services/journey-exit.service.js'
 
 /**
  * Recompute totalOrders, totalSpent, avgOrderValue, firstOrderAt, lastOrderAt,
@@ -165,5 +167,11 @@ export async function processOrder(
         console.error('recalculateCodProfile failed', err),
       )
     }
+    checkJourneyEntry(customerId, merchantId, 'order_placed', {}).catch(
+      (err: unknown) => console.error('[journey-entry] order_placed hook failed', err),
+    )
+    checkJourneyExit(customerId, merchantId, 'order_placed').catch(
+      (err: unknown) => console.error('[journey-exit] order_placed hook failed', err),
+    )
   }
 }

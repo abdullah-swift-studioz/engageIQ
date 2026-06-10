@@ -1,5 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
+vi.mock('../../services/journey-entry.service.js', () => ({
+  checkJourneyEntry: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@engageiq/db', () => ({
   prisma: {
     customer: {

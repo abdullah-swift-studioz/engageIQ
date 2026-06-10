@@ -1,6 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { SegmentGroup, EnrichedCustomerProfile } from '@engageiq/shared'
 
+vi.mock('./journey-entry.service.js', () => ({
+  checkJourneyEntry: vi.fn().mockResolvedValue(undefined),
+}))
+
 vi.mock('@engageiq/db', () => ({
   prisma: {
     segment: { findMany: vi.fn(), findFirst: vi.fn(), update: vi.fn() },

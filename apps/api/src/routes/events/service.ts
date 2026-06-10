@@ -1,6 +1,7 @@
 import { prisma, insertEvents } from '@engageiq/db'
 import type { EngageIQEvent } from '@engageiq/db'
 import type { CustomEventBody } from './schema.js'
+import { checkJourneyEntry } from '../../services/journey-entry.service.js'
 
 export async function ingestCustomEvent(
   merchantId: string,
@@ -30,5 +31,12 @@ export async function ingestCustomEvent(
   }
 
   await insertEvents([event])
+
+  if (body.customer_id) {
+    checkJourneyEntry(body.customer_id, merchantId, 'custom_event', { eventName: body.event_name }).catch(
+      (err: unknown) => console.error('[journey-entry] custom_event hook failed', err),
+    )
+  }
+
   return { event_id }
 }

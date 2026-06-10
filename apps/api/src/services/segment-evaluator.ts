@@ -1,6 +1,7 @@
 import { prisma } from '@engageiq/db'
 import type { SegmentGroup, SegmentCondition, ConditionOperator, EnrichedCustomerProfile } from '@engageiq/shared'
 import { FIELD_REGISTRY } from '../lib/segments/field-registry.js'
+import { checkJourneyEntry } from './journey-entry.service.js'
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
@@ -290,6 +291,9 @@ export async function evaluateProfileMemberships(
       await prisma.segmentMembership.create({
         data: { segmentId: segment.id, customerId },
       })
+      checkJourneyEntry(customerId, merchantId, 'segment_entered', { segmentId: segment.id }).catch(
+        (err: unknown) => console.error('[journey-entry] segment_entered hook failed', err),
+      )
     } else if (!isMember && existing) {
       await prisma.segmentMembership.update({
         where: { id: existing.id },
