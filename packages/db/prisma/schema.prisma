@@ -347,6 +347,7 @@ model Journey {
   triggerConfig Json         @map("trigger_config")
   status        JourneyStatus @default(DRAFT)
   reEntryRule   ReEntryRule  @default(DISALLOW) @map("re_entry_rule")
+  exitTrigger   String?      @map("exit_trigger") // e.g. "order_placed" — single exit trigger per journey
 
   // Analytics
   enrollmentCount  Int @default(0) @map("enrollment_count")
