@@ -15,6 +15,7 @@ import sdkRoutes from './routes/sdk.js'
 import customersRoutes from './routes/customers/index.js'
 import eventsRoutes from './routes/events/index.js'
 import segmentsRoutes from './routes/segments/index.js'
+import journeysRoutes from './routes/journeys/index.js'
 
 const app = Fastify({
   logger: {
@@ -66,6 +67,7 @@ await app.register(sdkRoutes)
 await app.register(customersRoutes, { prefix: '/api/v1/customers' })
 await app.register(eventsRoutes, { prefix: '/api/v1/events' })
 await app.register(segmentsRoutes, { prefix: '/api/v1/segments' })
+await app.register(journeysRoutes, { prefix: '/api/v1/journeys' })
 
 app.get('/health', () => ({
   status: 'ok',
