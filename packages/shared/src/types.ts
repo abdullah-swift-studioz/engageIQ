@@ -395,3 +395,30 @@ export interface SegmentEvaluateJobPayload {
   segmentId: string
   merchantId: string
 }
+
+// ─── Journey Executor ─────────────────────────────────────────────────────────
+
+export const JOURNEY_EXECUTOR = 'journey-executor' as const
+
+export type JourneyTriggerType = 'segment_entered' | 'order_placed' | 'custom_event' | 'scheduled'
+
+export type JourneyExecutorJob =
+  | { type: 'enroll_customer'; journeyId: string; customerId: string; merchantId: string }
+  | { type: 'execute_step'; enrollmentId: string; stepId: string; merchantId: string }
+  | { type: 'scheduled_fire'; journeyId: string; merchantId: string }
+
+export interface ActionStepConfig {
+  channel: 'WHATSAPP' | 'EMAIL' | 'SMS' | 'PUSH'
+  content: { body: string; subject?: string }
+}
+
+export interface ConditionStepConfig {
+  field: string
+  operator: ConditionOperator
+  value: unknown
+}
+
+export interface DelayStepConfig {
+  duration: number
+  unit: 'minutes' | 'hours' | 'days'
+}
