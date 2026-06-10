@@ -13,7 +13,9 @@ export type {
   MergeResult,
   CustomEventPayload, GroupMember,
   ConditionOperator, SegmentCondition, SegmentGroup, SegmentEvaluateJobPayload,
+  JourneyTriggerType, JourneyExecutorJob,
+  ActionStepConfig, ConditionStepConfig, DelayStepConfig,
 } from './types.js'
-export { SEGMENT_EVALUATE } from './types.js'
+export { SEGMENT_EVALUATE, JOURNEY_EXECUTOR } from './types.js'
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'
