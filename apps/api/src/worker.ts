@@ -1,12 +1,14 @@
 import type { Job } from 'bullmq'
-import type { ShopifyWebhookJob, BackfillJobData, SegmentEvaluateJobPayload } from '@engageiq/shared'
+import type { ShopifyWebhookJob, BackfillJobData, SegmentEvaluateJobPayload, JourneyExecutorJob } from '@engageiq/shared'
 import { createWebhookWorker } from './workers/webhook.worker.js'
 import { createBackfillWorker } from './workers/backfill.worker.js'
 import { createSegmentEvaluateWorker } from './workers/segment-evaluate.worker.js'
+import { createJourneyExecutorWorker } from './workers/journey-executor.worker.js'
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
 const segmentEvaluateWorker = createSegmentEvaluateWorker()
+const journeyExecutorWorker = createJourneyExecutorWorker()
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -48,13 +50,30 @@ segmentEvaluateWorker.on('error', (err: Error) => {
   console.error('[segment-evaluate-worker] worker error:', err)
 })
 
+journeyExecutorWorker.on('completed', (job: Job<JourneyExecutorJob>) => {
+  console.info(`[journey-executor-worker] completed  job=${job.id} type=${job.data.type}`)
+})
+
+journeyExecutorWorker.on('failed', (job: Job<JourneyExecutorJob> | undefined, err: Error) => {
+  console.error(`[journey-executor-worker] failed    job=${job?.id} type=${job?.data.type} error=${err.message}`)
+})
+
+journeyExecutorWorker.on('error', (err: Error) => {
+  console.error('[journey-executor-worker] worker error:', err)
+})
+
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
-  await Promise.all([webhookWorker.close(), backfillWorker.close(), segmentEvaluateWorker.close()])
+  await Promise.all([
+    webhookWorker.close(),
+    backfillWorker.close(),
+    segmentEvaluateWorker.close(),
+    journeyExecutorWorker.close(),
+  ])
   process.exit(0)
 }
 
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
-console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate queues')
+console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor queues')
