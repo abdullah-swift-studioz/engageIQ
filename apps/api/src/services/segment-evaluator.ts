@@ -1,4 +1,3 @@
-import type { Prisma } from '@engageiq/db'
 import { prisma } from '@engageiq/db'
 import type { SegmentGroup, SegmentCondition, ConditionOperator, EnrichedCustomerProfile } from '@engageiq/shared'
 import { FIELD_REGISTRY } from '../lib/segments/field-registry.js'
@@ -11,7 +10,7 @@ function isCondition(rule: SegmentGroup | SegmentCondition): rule is SegmentCond
 
 // ─── SQL compiler (batch path) ────────────────────────────────────────────────
 
-function conditionToWhere(condition: SegmentCondition): Prisma.CustomerWhereInput {
+function conditionToWhere(condition: SegmentCondition): unknown {
   const def = FIELD_REGISTRY[condition.field]!
   const col = def.column
   const val = condition.value
@@ -19,55 +18,55 @@ function conditionToWhere(condition: SegmentCondition): Prisma.CustomerWhereInpu
 
   switch (condition.operator as ConditionOperator) {
     case 'eq':
-      return { [col]: val } as Prisma.CustomerWhereInput
+      return { [col]: val } as unknown
     case 'neq':
-      return { [col]: { not: val } } as Prisma.CustomerWhereInput
+      return { [col]: { not: val } } as unknown
     case 'gt':
-      return { [col]: { gt: val } } as Prisma.CustomerWhereInput
+      return { [col]: { gt: val } } as unknown
     case 'gte':
-      return { [col]: { gte: val } } as Prisma.CustomerWhereInput
+      return { [col]: { gte: val } } as unknown
     case 'lt':
-      return { [col]: { lt: val } } as Prisma.CustomerWhereInput
+      return { [col]: { lt: val } } as unknown
     case 'lte':
-      return { [col]: { lte: val } } as Prisma.CustomerWhereInput
+      return { [col]: { lte: val } } as unknown
     case 'between': {
       const [min, max] = val as [unknown, unknown]
-      return { [col]: { gte: min, lte: max } } as Prisma.CustomerWhereInput
+      return { [col]: { gte: min, lte: max } } as unknown
     }
     case 'in':
-      return { [col]: { in: val as unknown[] } } as Prisma.CustomerWhereInput
+      return { [col]: { in: val as unknown[] } } as unknown
     case 'not_in':
-      return { [col]: { notIn: val as unknown[] } } as Prisma.CustomerWhereInput
+      return { [col]: { notIn: val as unknown[] } } as unknown
     case 'contains':
-      return { [col]: { contains: val as string, mode: 'insensitive' } } as Prisma.CustomerWhereInput
+      return { [col]: { contains: val as string, mode: 'insensitive' } } as unknown
     case 'not_contains':
-      return { [col]: { not: { contains: val as string, mode: 'insensitive' } } } as Prisma.CustomerWhereInput
+      return { [col]: { not: { contains: val as string, mode: 'insensitive' } } } as unknown
     case 'is_true':
-      return { [col]: true } as Prisma.CustomerWhereInput
+      return { [col]: true } as unknown
     case 'is_false':
-      return { [col]: false } as Prisma.CustomerWhereInput
+      return { [col]: false } as unknown
     case 'before':
-      return { [col]: { lt: new Date(val as string) } } as Prisma.CustomerWhereInput
+      return { [col]: { lt: new Date(val as string) } } as unknown
     case 'after':
-      return { [col]: { gt: new Date(val as string) } } as Prisma.CustomerWhereInput
+      return { [col]: { gt: new Date(val as string) } } as unknown
     case 'within_last_days':
-      return { [col]: { gte: new Date(now - (val as number) * 86_400_000) } } as Prisma.CustomerWhereInput
+      return { [col]: { gte: new Date(now - (val as number) * 86_400_000) } } as unknown
     case 'more_than_days_ago':
-      return { [col]: { lt: new Date(now - (val as number) * 86_400_000) } } as Prisma.CustomerWhereInput
+      return { [col]: { lt: new Date(now - (val as number) * 86_400_000) } } as unknown
     case 'is_set':
-      return { [col]: { not: null } } as Prisma.CustomerWhereInput
+      return { [col]: { not: null } } as unknown
     case 'is_not_set':
-      return { [col]: null } as Prisma.CustomerWhereInput
+      return { [col]: null } as unknown
     case 'includes_any':
-      return { [col]: { hasSome: val as string[] } } as Prisma.CustomerWhereInput
+      return { [col]: { hasSome: val as string[] } } as unknown
     case 'includes_all':
-      return { [col]: { hasEvery: val as string[] } } as Prisma.CustomerWhereInput
+      return { [col]: { hasEvery: val as string[] } } as unknown
     case 'includes_none':
-      return { NOT: { [col]: { hasSome: val as string[] } } } as Prisma.CustomerWhereInput
+      return { NOT: { [col]: { hasSome: val as string[] } } } as unknown
   }
 }
 
-function compileGroup(group: SegmentGroup): Prisma.CustomerWhereInput {
+function compileGroup(group: SegmentGroup): unknown {
   const clauses = group.rules.map((rule) =>
     isCondition(rule) ? conditionToWhere(rule) : compileGroup(rule),
   )
@@ -77,7 +76,7 @@ function compileGroup(group: SegmentGroup): Prisma.CustomerWhereInput {
 export function compileToPrismaWhere(
   group: SegmentGroup,
   merchantId: string,
-): Prisma.CustomerWhereInput {
+): unknown {
   return {
     AND: [
       { merchantId },
@@ -111,7 +110,7 @@ function evaluateCondition(
   profile: EnrichedCustomerProfile,
 ): boolean {
   const def = FIELD_REGISTRY[condition.field]!
-  const raw = (profile as Record<string, unknown>)[def.profileKey]
+  const raw = (profile as unknown as Record<string, unknown>)[def.profileKey]
   const val = condition.value
   const now = Date.now()
 
@@ -230,7 +229,7 @@ export function evaluateProfile(
 
 // ─── Profile membership helper ────────────────────────────────────────────────
 
-function prismaCustomerToProfileLike(
+export function buildProfileFromCustomer(
   customer: Record<string, unknown>,
 ): EnrichedCustomerProfile {
   return {
@@ -277,10 +276,10 @@ export async function evaluateProfileMemberships(
   })
   if (!customer) return
 
-  const profile = prismaCustomerToProfileLike(customer as unknown as Record<string, unknown>)
+  const profile = buildProfileFromCustomer(customer as unknown as Record<string, unknown>)
 
   for (const segment of segments) {
-    const group = segment.conditions as SegmentGroup
+    const group = segment.conditions as unknown as SegmentGroup
     const isMember = evaluateProfile(group, profile)
 
     const existing = await prisma.segmentMembership.findFirst({
