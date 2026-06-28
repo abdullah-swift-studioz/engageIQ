@@ -106,27 +106,71 @@ enum ReEntryRule {
   RE_ENROLL_AFTER_EXIT
 }
 
+// ─── Phase 0 freeze: Channels / Campaigns / ML enums ──────────────────────────
+
+enum MessageDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum MessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  RECEIVED
+}
+
+enum TemplateStatus {
+  DRAFT
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum TemplateCategory {
+  UTILITY
+  MARKETING
+}
+
+enum CampaignRecipientStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  SKIPPED
+}
+
+enum RecommendationType {
+  ALSO_BOUGHT
+  MIGHT_LIKE
+  COMPLETE_LOOK
+  RESTOCK
+}
+
 // ─── Merchants ────────────────────────────────────────────────────────────────
 
 model Merchant {
-  id                  String   @id @default(cuid())
-  name                String
+  id                   String    @id @default(cuid())
+  name                 String
   shopifyDomain        String?   @unique @map("shopify_domain")
   shopifyAccessToken   String?   @map("shopify_access_token")
   shopifyShopId        String?   @map("shopify_shop_id")
   shopifyScope         String?   @map("shopify_scope")
   shopifyInstalledAt   DateTime? @map("shopify_installed_at")
   shopifyUninstalledAt DateTime? @map("shopify_uninstalled_at")
-  plan                Plan     @default(STARTER)
-  timezone            String   @default("Asia/Karachi")
-  currency            String   @default("PKR")
-  isActive            Boolean  @default(true) @map("is_active")
-  backfillCompletedAt DateTime? @map("backfill_completed_at")
+  plan                 Plan      @default(STARTER)
+  timezone             String    @default("Asia/Karachi")
+  currency             String    @default("PKR")
+  isActive             Boolean   @default(true) @map("is_active")
+  backfillCompletedAt  DateTime? @map("backfill_completed_at")
 
   // Agency parent/child: an agency merchant can own child merchants
-  agencyId   String?   @map("agency_id")
-  agency     Merchant? @relation("AgencyChildren", fields: [agencyId], references: [id])
-  children   Merchant[] @relation("AgencyChildren")
+  agencyId String?    @map("agency_id")
+  agency   Merchant?  @relation("AgencyChildren", fields: [agencyId], references: [id])
+  children Merchant[] @relation("AgencyChildren")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -142,20 +186,29 @@ model Merchant {
   abandonedCheckouts AbandonedCheckout[]
   apiKeys            ApiKey[]
 
+  // Phase 0 freeze back-relations
+  whatsappTemplates  WhatsAppTemplate[]
+  messages           Message[]
+  campaignRecipients CampaignRecipient[]
+  products           Product[]
+  recommendations    Recommendation[]
+  modelRuns          ModelRun[]
+  savedViews         SavedView[]
+
   @@map("merchants")
 }
 
 // ─── Users (dashboard users) ─────────────────────────────────────────────────
 
 model User {
-  id           String  @id @default(cuid())
-  merchantId   String  @map("merchant_id")
+  id           String    @id @default(cuid())
+  merchantId   String    @map("merchant_id")
   email        String
-  passwordHash String  @map("password_hash")
-  firstName    String  @map("first_name")
-  lastName     String  @map("last_name")
-  role         Role    @default(MARKETER)
-  isActive     Boolean @default(true) @map("is_active")
+  passwordHash String    @map("password_hash")
+  firstName    String    @map("first_name")
+  lastName     String    @map("last_name")
+  role         Role      @default(MARKETER)
+  isActive     Boolean   @default(true) @map("is_active")
   lastLoginAt  DateTime? @map("last_login_at")
 
   createdAt DateTime @default(now()) @map("created_at")
@@ -171,80 +224,85 @@ model User {
 // ─── Customers ────────────────────────────────────────────────────────────────
 
 model Customer {
-  id               String  @id @default(cuid())
-  merchantId       String  @map("merchant_id")
+  id                String  @id @default(cuid())
+  merchantId        String  @map("merchant_id")
   shopifyCustomerId String? @map("shopify_customer_id")
 
   // Identity
-  email            String?
-  phone            String?  // E.164 format
-  firstName        String?  @map("first_name")
-  lastName         String?  @map("last_name")
-  city             String?
-  province         String?
-  country          String   @default("PK")
-  languagePreference String? @map("language_preference") // "en" | "ur"
-  tags             String[] @default([])
+  email              String?
+  phone              String? // E.164 format
+  firstName          String?  @map("first_name")
+  lastName           String?  @map("last_name")
+  city               String?
+  province           String?
+  country            String   @default("PK")
+  languagePreference String?  @map("language_preference") // "en" | "ur"
+  tags               String[] @default([])
 
   // Shopify aggregates (kept in sync by webhook processor)
-  totalOrders      Int      @default(0) @map("total_orders")
-  totalSpent       Decimal  @default(0) @db.Decimal(12, 2) @map("total_spent")
-  avgOrderValue    Decimal  @default(0) @db.Decimal(10, 2) @map("avg_order_value")
-  firstOrderAt     DateTime? @map("first_order_at")
-  lastOrderAt      DateTime? @map("last_order_at")
+  totalOrders   Int       @default(0) @map("total_orders")
+  totalSpent    Decimal   @default(0) @map("total_spent") @db.Decimal(12, 2)
+  avgOrderValue Decimal   @default(0) @map("avg_order_value") @db.Decimal(10, 2)
+  firstOrderAt  DateTime? @map("first_order_at")
+  lastOrderAt   DateTime? @map("last_order_at")
 
   // Behavioral (from ClickHouse, synced periodically)
-  lastSeenAt       DateTime? @map("last_seen_at")
-  sessionCount     Int       @default(0) @map("session_count")
+  lastSeenAt   DateTime? @map("last_seen_at")
+  sessionCount Int       @default(0) @map("session_count")
 
   // RFM scoring (computed by daily batch job in Phase 4)
-  rfmSegment       RfmSegment? @map("rfm_segment")
-  rfmRecencyScore  Int?        @map("rfm_recency_score")   // 1–5
-  rfmFrequencyScore Int?       @map("rfm_frequency_score") // 1–5
-  rfmMonetaryScore Int?        @map("rfm_monetary_score")  // 1–5
-  rfmScoredAt      DateTime?   @map("rfm_scored_at")
+  rfmSegment        RfmSegment? @map("rfm_segment")
+  rfmRecencyScore   Int?        @map("rfm_recency_score") // 1–5
+  rfmFrequencyScore Int?        @map("rfm_frequency_score") // 1–5
+  rfmMonetaryScore  Int?        @map("rfm_monetary_score") // 1–5
+  rfmScoredAt       DateTime?   @map("rfm_scored_at")
 
   // AI scores (computed by Python microservice in Phase 7)
-  churnScore       Float?      @map("churn_score")        // 0–1
-  churnRiskLabel   ChurnRiskLabel? @map("churn_risk_label")
-  churnScoredAt    DateTime?   @map("churn_scored_at")
-  ltv90d           Decimal?    @db.Decimal(12, 2) @map("ltv_90d")
-  ltv180d          Decimal?    @db.Decimal(12, 2) @map("ltv_180d")
-  ltv365d          Decimal?    @db.Decimal(12, 2) @map("ltv_365d")
-  ltvScoredAt      DateTime?   @map("ltv_scored_at")
+  churnScore     Float?          @map("churn_score") // 0–100 (see CHURN_SCORE in @engageiq/shared; Feature Guide §8.1)
+  churnRiskLabel ChurnRiskLabel? @map("churn_risk_label")
+  churnScoredAt  DateTime?       @map("churn_scored_at")
+  ltv90d         Decimal?        @map("ltv_90d") @db.Decimal(12, 2)
+  ltv180d        Decimal?        @map("ltv_180d") @db.Decimal(12, 2)
+  ltv365d        Decimal?        @map("ltv_365d") @db.Decimal(12, 2)
+  ltvScoredAt    DateTime?       @map("ltv_scored_at")
 
   // COD profile
-  codOrderCount        Int     @default(0)  @map("cod_order_count")
-  codAcceptanceRate    Float?  @map("cod_acceptance_rate")   // 0–1
-  codRejectionRate     Float?  @map("cod_rejection_rate")    // 0–1
-  fakeOrderScore       Float?  @map("fake_order_score")      // 0–100
-  isBlocked            Boolean @default(false) @map("is_blocked")
+  codOrderCount     Int     @default(0) @map("cod_order_count")
+  codAcceptanceRate Float?  @map("cod_acceptance_rate") // 0–1
+  codRejectionRate  Float?  @map("cod_rejection_rate") // 0–1
+  fakeOrderScore    Float?  @map("fake_order_score") // 0–100
+  isBlocked         Boolean @default(false) @map("is_blocked")
 
   // Channel opt-ins
-  isSubscribedEmail     Boolean @default(true)  @map("is_subscribed_email")
-  isSubscribedSms       Boolean @default(true)  @map("is_subscribed_sms")
-  isSubscribedWhatsapp  Boolean @default(true)  @map("is_subscribed_whatsapp")
+  isSubscribedEmail    Boolean @default(true) @map("is_subscribed_email")
+  isSubscribedSms      Boolean @default(true) @map("is_subscribed_sms")
+  isSubscribedWhatsapp Boolean @default(true) @map("is_subscribed_whatsapp")
 
   // Anonymous ID linking (from Storefront SDK)
-  anonIds          String[] @default([]) @map("anon_ids")
+  anonIds String[] @default([]) @map("anon_ids")
 
   // Multi-store unification (Phase 3)
-  groupCustomerId  String?  @map("group_customer_id")
+  groupCustomerId String? @map("group_customer_id")
 
   // Identity resolution (Phase 3)
-  mergedIntoId     String?  @map("merged_into_id")
-  mergedAt         DateTime? @map("merged_at")
+  mergedIntoId String?   @map("merged_into_id")
+  mergedAt     DateTime? @map("merged_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  merchant           Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchant           Merchant            @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   segmentMemberships SegmentMembership[]
   journeyEnrollments JourneyEnrollment[]
   codOrders          CodOrder[]
   orders             Order[]
   abandonedCheckouts AbandonedCheckout[]
+
+  // Phase 0 freeze back-relations
+  messages           Message[]
+  campaignRecipients CampaignRecipient[]
+  recommendations    Recommendation[]
 
   @@unique([merchantId, shopifyCustomerId])
   @@unique([merchantId, email])
@@ -252,25 +310,27 @@ model Customer {
   @@index([merchantId, rfmSegment])
   @@index([merchantId, churnRiskLabel])
   @@index([groupCustomerId])
+  // Phase 0 freeze: WhatsApp inbound webhook matches customer by (merchantId, phone) on a hot path
+  @@index([merchantId, phone])
   @@map("customers")
 }
 
 // ─── Segments ─────────────────────────────────────────────────────────────────
 
 model Segment {
-  id          String  @id @default(cuid())
-  merchantId  String  @map("merchant_id")
-  name        String
-  description String?
-  conditions  Json    // The condition tree (Phase 5 segment builder format)
-  isDynamic   Boolean @default(true) @map("is_dynamic")
-  memberCount Int     @default(0) @map("member_count")
+  id              String    @id @default(cuid())
+  merchantId      String    @map("merchant_id")
+  name            String
+  description     String?
+  conditions      Json // The condition tree (Phase 5 segment builder format)
+  isDynamic       Boolean   @default(true) @map("is_dynamic")
+  memberCount     Int       @default(0) @map("member_count")
   lastEvaluatedAt DateTime? @map("last_evaluated_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  merchant    Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchant    Merchant            @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   memberships SegmentMembership[]
   campaigns   Campaign[]
 
@@ -279,10 +339,10 @@ model Segment {
 }
 
 model SegmentMembership {
-  id         String   @id @default(cuid())
-  segmentId  String   @map("segment_id")
-  customerId String   @map("customer_id")
-  enteredAt  DateTime @default(now()) @map("entered_at")
+  id         String    @id @default(cuid())
+  segmentId  String    @map("segment_id")
+  customerId String    @map("customer_id")
+  enteredAt  DateTime  @default(now()) @map("entered_at")
   exitedAt   DateTime? @map("exited_at") // null = currently a member
 
   segment  Segment  @relation(fields: [segmentId], references: [id], onDelete: Cascade)
@@ -305,20 +365,20 @@ model Campaign {
   segmentId  String?        @map("segment_id")
 
   // Content
-  subject    String?
-  content    Json    // Channel-specific content payload
+  subject String?
+  content Json // Channel-specific content payload
 
   // Scheduling
-  sendAt     DateTime? @map("send_at")
-  sentAt     DateTime? @map("sent_at")
+  sendAt DateTime? @map("send_at")
+  sentAt DateTime? @map("sent_at")
 
   // Analytics
-  recipientCount   Int     @default(0) @map("recipient_count")
-  deliveredCount   Int     @default(0) @map("delivered_count")
-  openedCount      Int     @default(0) @map("opened_count")
-  clickedCount     Int     @default(0) @map("clicked_count")
-  unsubscribedCount Int    @default(0) @map("unsubscribed_count")
-  revenueAttributed Decimal @default(0) @db.Decimal(12, 2) @map("revenue_attributed")
+  recipientCount    Int     @default(0) @map("recipient_count")
+  deliveredCount    Int     @default(0) @map("delivered_count")
+  openedCount       Int     @default(0) @map("opened_count")
+  clickedCount      Int     @default(0) @map("clicked_count")
+  unsubscribedCount Int     @default(0) @map("unsubscribed_count")
+  revenueAttributed Decimal @default(0) @map("revenue_attributed") @db.Decimal(12, 2)
 
   // Attribution tracking
   utmCampaign String? @map("utm_campaign")
@@ -328,8 +388,12 @@ model Campaign {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
-  segment  Segment?  @relation(fields: [segmentId], references: [id])
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  segment  Segment? @relation(fields: [segmentId], references: [id])
+
+  // Phase 0 freeze back-relations
+  messages   Message[]
+  recipients CampaignRecipient[]
 
   @@index([merchantId])
   @@index([merchantId, status])
@@ -339,24 +403,24 @@ model Campaign {
 // ─── Journeys ─────────────────────────────────────────────────────────────────
 
 model Journey {
-  id            String       @id @default(cuid())
-  merchantId    String       @map("merchant_id")
+  id            String        @id @default(cuid())
+  merchantId    String        @map("merchant_id")
   name          String
   description   String?
-  triggerType   String       @map("trigger_type") // e.g. "order_placed", "segment_entered"
-  triggerConfig Json         @map("trigger_config")
+  triggerType   String        @map("trigger_type") // e.g. "order_placed", "segment_entered"
+  triggerConfig Json          @map("trigger_config")
   status        JourneyStatus @default(DRAFT)
-  reEntryRule   ReEntryRule  @default(DISALLOW) @map("re_entry_rule")
-  exitTrigger   String?      @map("exit_trigger") // e.g. "order_placed" — single exit trigger per journey
+  reEntryRule   ReEntryRule   @default(DISALLOW) @map("re_entry_rule")
+  exitTrigger   String?       @map("exit_trigger") // e.g. "order_placed" — single exit trigger per journey
 
   // Analytics
-  enrollmentCount  Int @default(0) @map("enrollment_count")
-  completionCount  Int @default(0) @map("completion_count")
+  enrollmentCount Int @default(0) @map("enrollment_count")
+  completionCount Int @default(0) @map("completion_count")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  merchant    Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchant    Merchant            @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   steps       JourneyStep[]
   enrollments JourneyEnrollment[]
 
@@ -370,16 +434,16 @@ model JourneyStep {
   journeyId    String          @map("journey_id")
   parentStepId String?         @map("parent_step_id")
   stepType     JourneyStepType @map("step_type")
-  config       Json            // step-type-specific configuration
+  config       Json // step-type-specific configuration
   positionX    Int             @default(0) @map("position_x") // canvas coordinates
   positionY    Int             @default(0) @map("position_y")
   label        String?
 
   createdAt DateTime @default(now()) @map("created_at")
 
-  journey    Journey          @relation(fields: [journeyId], references: [id], onDelete: Cascade)
-  parentStep JourneyStep?     @relation("StepChildren", fields: [parentStepId], references: [id])
-  childSteps JourneyStep[]    @relation("StepChildren")
+  journey     Journey             @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  parentStep  JourneyStep?        @relation("StepChildren", fields: [parentStepId], references: [id])
+  childSteps  JourneyStep[]       @relation("StepChildren")
   enrollments JourneyEnrollment[]
 
   @@index([journeyId])
@@ -396,11 +460,14 @@ model JourneyEnrollment {
   completedAt   DateTime?        @map("completed_at")
   exitedAt      DateTime?        @map("exited_at")
   lastStepAt    DateTime?        @map("last_step_at")
-  metadata      Json?            // context data passed along the journey
+  metadata      Json? // context data passed along the journey
 
   journey     Journey      @relation(fields: [journeyId], references: [id], onDelete: Cascade)
   customer    Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
   currentStep JourneyStep? @relation(fields: [currentStepId], references: [id])
+
+  // Phase 0 freeze back-relation
+  messages Message[]
 
   @@index([journeyId, customerId, status])
   @@index([customerId])
@@ -411,25 +478,25 @@ model JourneyEnrollment {
 // ─── COD Orders ───────────────────────────────────────────────────────────────
 
 model CodOrder {
-  id               String                @id @default(cuid())
-  merchantId       String                @map("merchant_id")
-  customerId       String?               @map("customer_id")
-  shopifyOrderId   String                @map("shopify_order_id")
-  orderNumber      String                @map("order_number")
-  amount           Decimal               @db.Decimal(12, 2)
-  city             String?
-  province         String?
-  courier          String?
-  paymentGateway   String                @map("payment_gateway")
-  status           CodOrderStatus        @default(PENDING)
-  verificationStatus CodVerificationStatus @default(UNVERIFIED) @map("verification_status")
-  fakeScore        Float?                @map("fake_score")   // 0–100
-  fakeScoreDetails Json?                 @map("fake_score_details")
-  verificationSentAt  DateTime?          @map("verification_sent_at")
-  verificationRepliedAt DateTime?        @map("verification_replied_at")
-  placedAt         DateTime              @map("placed_at")
-  deliveredAt      DateTime?             @map("delivered_at")
-  returnedAt       DateTime?             @map("returned_at")
+  id                    String                @id @default(cuid())
+  merchantId            String                @map("merchant_id")
+  customerId            String?               @map("customer_id")
+  shopifyOrderId        String                @map("shopify_order_id")
+  orderNumber           String                @map("order_number")
+  amount                Decimal               @db.Decimal(12, 2)
+  city                  String?
+  province              String?
+  courier               String?
+  paymentGateway        String                @map("payment_gateway")
+  status                CodOrderStatus        @default(PENDING)
+  verificationStatus    CodVerificationStatus @default(UNVERIFIED) @map("verification_status")
+  fakeScore             Float?                @map("fake_score") // 0–100
+  fakeScoreDetails      Json?                 @map("fake_score_details")
+  verificationSentAt    DateTime?             @map("verification_sent_at")
+  verificationRepliedAt DateTime?             @map("verification_replied_at")
+  placedAt              DateTime              @map("placed_at")
+  deliveredAt           DateTime?             @map("delivered_at")
+  returnedAt            DateTime?             @map("returned_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -447,25 +514,28 @@ model CodOrder {
 // ─── Orders ───────────────────────────────────────────────────────────────────
 
 model Order {
-  id               String   @id @default(cuid())
-  merchantId       String   @map("merchant_id")
-  customerId       String?  @map("customer_id")
-  shopifyOrderId   String   @map("shopify_order_id")
-  orderNumber      String   @map("order_number")
-  totalPrice       Decimal  @db.Decimal(12, 2) @map("total_price")
-  subtotalPrice    Decimal  @db.Decimal(12, 2) @map("subtotal_price")
-  currency         String   @default("PKR")
-  financialStatus  String?  @map("financial_status")   // paid, pending, refunded, voided
-  fulfillmentStatus String? @map("fulfillment_status") // fulfilled, partial, null
-  paymentGateway   String?  @map("payment_gateway")
-  isCod            Boolean  @default(false) @map("is_cod")
-  lineItems        Json     @map("line_items")          // [{product_id, variant_id, title, quantity, price, sku}]
-  shippingAddress  Json?    @map("shipping_address")
-  tags             String[] @default([])
-  cancelledAt      DateTime? @map("cancelled_at")
-  cancelReason     String?   @map("cancel_reason")
-  refundedAmount   Decimal   @default(0) @db.Decimal(12, 2) @map("refunded_amount")
-  placedAt         DateTime  @map("placed_at")
+  id                String    @id @default(cuid())
+  merchantId        String    @map("merchant_id")
+  customerId        String?   @map("customer_id")
+  shopifyOrderId    String    @map("shopify_order_id")
+  orderNumber       String    @map("order_number")
+  totalPrice        Decimal   @map("total_price") @db.Decimal(12, 2)
+  subtotalPrice     Decimal   @map("subtotal_price") @db.Decimal(12, 2)
+  currency          String    @default("PKR")
+  financialStatus   String?   @map("financial_status") // paid, pending, refunded, voided
+  fulfillmentStatus String?   @map("fulfillment_status") // fulfilled, partial, null
+  paymentGateway    String?   @map("payment_gateway")
+  isCod             Boolean   @default(false) @map("is_cod")
+  lineItems         Json      @map("line_items") // [{product_id, variant_id, title, quantity, price, sku}]
+  shippingAddress   Json?     @map("shipping_address")
+  tags              String[]  @default([])
+  cancelledAt       DateTime? @map("cancelled_at")
+  cancelReason      String?   @map("cancel_reason")
+  refundedAmount    Decimal   @default(0) @map("refunded_amount") @db.Decimal(12, 2)
+  // Phase 0 freeze: per-line return detail so Lane C can compute Product.returnRate (unit-level).
+  // PLACEHOLDER: refund.processor must populate [{ product_id, line_item_id, quantity, subtotal }].
+  returnsData       Json?     @map("returns_data")
+  placedAt          DateTime  @map("placed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -484,15 +554,15 @@ model Order {
 // ─── Abandoned Checkouts ──────────────────────────────────────────────────────
 
 model AbandonedCheckout {
-  id                   String   @id @default(cuid())
-  merchantId           String   @map("merchant_id")
-  customerId           String?  @map("customer_id")
-  shopifyCheckoutToken String   @map("shopify_checkout_token")
+  id                   String    @id @default(cuid())
+  merchantId           String    @map("merchant_id")
+  customerId           String?   @map("customer_id")
+  shopifyCheckoutToken String    @map("shopify_checkout_token")
   email                String?
   phone                String?
-  lineItems            Json     @map("line_items")
-  totalPrice           Decimal  @db.Decimal(12, 2) @map("total_price")
-  currency             String   @default("PKR")
+  lineItems            Json      @map("line_items")
+  totalPrice           Decimal   @map("total_price") @db.Decimal(12, 2)
+  currency             String    @default("PKR")
   abandonedAt          DateTime? @map("abandoned_at")
   recoveredAt          DateTime? @map("recovered_at")
   recoveredOrderId     String?   @map("recovered_order_id")
@@ -512,12 +582,12 @@ model AbandonedCheckout {
 // ─── API Keys ─────────────────────────────────────────────────────────────────
 
 model ApiKey {
-  id         String   @id @default(cuid())
-  merchantId String   @map("merchant_id")
+  id         String    @id @default(cuid())
+  merchantId String    @map("merchant_id")
   name       String
-  keyHash    String   @unique @map("key_hash")  // bcrypt hash of the full key
-  keyPrefix  String   @map("key_prefix")        // first 12 chars e.g. "eiq_live_abc" for display
-  isActive   Boolean  @default(true) @map("is_active")
+  keyHash    String    @unique @map("key_hash") // bcrypt hash of the full key
+  keyPrefix  String    @map("key_prefix") // first 12 chars e.g. "eiq_live_abc" for display
+  isActive   Boolean   @default(true) @map("is_active")
   lastUsedAt DateTime? @map("last_used_at")
   expiresAt  DateTime? @map("expires_at")
 
@@ -528,4 +598,192 @@ model ApiKey {
   @@index([merchantId])
   @@index([keyPrefix])
   @@map("api_keys")
+}
+
+// ─── Phase 0 freeze: Channels / Messaging ─────────────────────────────────────
+// Frozen for Lane A (Channels) per docs/superpowers/specs/2026-06-26-whatsapp-channel-adapter-design.md
+
+model WhatsAppTemplate {
+  id              String           @id @default(cuid())
+  merchantId      String           @map("merchant_id")
+  name            String
+  // Meta language code, e.g. "en", "en_US", "ur", "ar_AE" — free string, NOT an enum
+  language        String
+  category        TemplateCategory
+  bodyText        String           @map("body_text") // body with {{1}}, {{2}} … placeholders
+  variableMap     Json             @map("variable_map") // ordered [{ index, field, default? }]
+  status          TemplateStatus   @default(DRAFT)
+  metaTemplateId  String?          @map("meta_template_id") // Meta-assigned id after submit
+  rejectionReason String?          @map("rejection_reason") // populated on REJECTED (UI needs it)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([merchantId, name, language])
+  @@index([merchantId])
+  @@map("whatsapp_templates")
+}
+
+model Message {
+  id                  String           @id @default(cuid())
+  merchantId          String           @map("merchant_id")
+  customerId          String?          @map("customer_id") // nullable: inbound from unknown number
+  channel             Channel
+  direction           MessageDirection
+  templateId          String?          @map("template_id") // null for free-form / inbound
+  providerMessageId   String?          @unique @map("provider_message_id") // Meta wamid; @unique for status-webhook lookup + idempotency
+  status              MessageStatus    @default(QUEUED)
+  errorCode           String?          @map("error_code")
+  errorTitle          String?          @map("error_title")
+  body                String
+  toPhone             String           @map("to_phone") // E.164
+  fromPhone           String?          @map("from_phone") // set for inbound
+  journeyEnrollmentId String?          @map("journey_enrollment_id") // attribution (nullable)
+  campaignId          String?          @map("campaign_id") // attribution (nullable)
+  sentAt              DateTime?        @map("sent_at")
+  deliveredAt         DateTime?        @map("delivered_at")
+  readAt              DateTime?        @map("read_at")
+  failedAt            DateTime?        @map("failed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer          Customer?          @relation(fields: [customerId], references: [id])
+  template          WhatsAppTemplate?  @relation(fields: [templateId], references: [id])
+  journeyEnrollment JourneyEnrollment? @relation(fields: [journeyEnrollmentId], references: [id])
+  campaign          Campaign?          @relation(fields: [campaignId], references: [id])
+  campaignRecipient CampaignRecipient? // 1:1 back-relation (CampaignRecipient.messageId @unique)
+
+  @@index([merchantId])
+  @@index([customerId])
+  @@index([merchantId, channel, direction])
+  @@map("messages")
+}
+
+// ─── Phase 0 freeze: Campaigns ────────────────────────────────────────────────
+// Frozen for Lane B (Campaign Engine). Per-recipient rows give idempotent blasts
+// (@@unique([campaignId, customerId])), per-recipient resend, and attribution.
+
+model CampaignRecipient {
+  id         String                  @id @default(cuid())
+  merchantId String                  @map("merchant_id")
+  campaignId String                  @map("campaign_id")
+  customerId String                  @map("customer_id")
+  status     CampaignRecipientStatus @default(PENDING)
+  messageId  String?                 @unique @map("message_id") // FK to Message (wamid lives on Message)
+  sentAt     DateTime?               @map("sent_at")
+  failedAt   DateTime?               @map("failed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  message  Message? @relation(fields: [messageId], references: [id])
+
+  @@unique([campaignId, customerId])
+  @@index([merchantId])
+  @@index([campaignId, status])
+  @@map("campaign_recipients")
+}
+
+// ─── Phase 0 freeze: Product catalog ──────────────────────────────────────────
+// Frozen to unblock product-level retention analytics (4.5), recommendations (7.2),
+// and email dynamic blocks at once. Variants kept as Json (not normalized) — Phase 0
+// tradeoff. No Order→Product FK; analytics join via lineItems.product_id + shopify_product_id.
+
+model Product {
+  id               String   @id @default(cuid())
+  merchantId       String   @map("merchant_id")
+  shopifyProductId String   @map("shopify_product_id")
+  title            String
+  handle           String?
+  vendor           String?
+  productType      String?  @map("product_type")
+  status           String? // "active" | "archived"
+  imageUrl         String?  @map("image_url")
+  priceMin         Decimal? @map("price_min") @db.Decimal(12, 2)
+  priceMax         Decimal? @map("price_max") @db.Decimal(12, 2)
+  tags             String[] @default([])
+  variants         Json? // [{ id, title, price, sku, inventory }]
+
+  // Product-level retention analytics — PLACEHOLDERS: nullable, no engine writes these yet (Lane C/D fill later)
+  repurchaseRate90d       Float?    @map("repurchase_rate_90d")
+  crossSellRate           Float?    @map("cross_sell_rate")
+  returnRate              Float?    @map("return_rate")
+  avgBuyerLtv             Decimal?  @map("avg_buyer_ltv") @db.Decimal(12, 2)
+  avgDaysToSecondPurchase Float?    @map("avg_days_to_second_purchase")
+  analyticsComputedAt     DateTime? @map("analytics_computed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, shopifyProductId])
+  @@index([merchantId])
+  @@map("products")
+}
+
+// ─── Phase 0 freeze: ML / AI ──────────────────────────────────────────────────
+// Frozen for Lane D (ML service). Recommendation = rec cache; ModelRun = run audit.
+// PLACEHOLDERS: both tables have no producer yet — Lane D's Python service fills them.
+
+model Recommendation {
+  id          String             @id @default(cuid())
+  merchantId  String             @map("merchant_id")
+  customerId  String             @map("customer_id")
+  type        RecommendationType
+  productIds  String[]           @default([]) @map("product_ids") // ordered Shopify product ids (no array FK)
+  score       Float?
+  generatedAt DateTime           @default(now()) @map("generated_at")
+  expiresAt   DateTime?          @map("expires_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, customerId, type])
+  @@index([merchantId, customerId])
+  @@map("recommendations")
+}
+
+model ModelRun {
+  id           String   @id @default(cuid())
+  merchantId   String?  @map("merchant_id") // nullable: some runs global, some per-merchant
+  modelName    String   @map("model_name")
+  modelVersion String   @map("model_version")
+  status       String   @default("success")
+  rowCount     Int?     @map("row_count")
+  durationMs   Int?     @map("duration_ms")
+  runAt        DateTime @default(now()) @map("run_at")
+  metadata     Json?
+
+  merchant Merchant? @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([modelName, runAt])
+  @@map("model_runs")
+}
+
+// ─── Phase 0 freeze: Analytics saved views ────────────────────────────────────
+// Frozen for Lane C (Analytics). One generic table persists funnel + cohort + other
+// saved configs so Lane C never needs a mid-wave migration. PLACEHOLDER: no producer yet.
+
+model SavedView {
+  id         String @id @default(cuid())
+  merchantId String @map("merchant_id")
+  type       String // "FUNNEL" | "COHORT" | "OTHER"
+  name       String
+  config     Json
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, type])
+  @@map("saved_views")
 }

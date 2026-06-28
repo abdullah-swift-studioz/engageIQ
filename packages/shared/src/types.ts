@@ -422,3 +422,78 @@ export interface DelayStepConfig {
   duration: number
   unit: 'minutes' | 'hours' | 'days'
 }
+
+// ─── Channel Dispatch Contract (Phase 0 freeze — Wave 0 seam for Lanes A & B) ──
+//
+// The single contract the Channels lane (Lane A) implements and the Campaign lane
+// (Lane B) consumes. Frozen here in Wave 0 so both lanes build against the same
+// seam before they diverge. Mirrors the approved WhatsApp adapter spec
+// (docs/superpowers/specs/2026-06-26-whatsapp-channel-adapter-design.md §4.2).
+//
+// String-literal unions only — @engageiq/shared stays a dependency-free leaf and
+// never imports @prisma/client. The DB layer's `Channel` / `TemplateCategory`
+// enums map 1:1 onto these unions (the Channels lane bridges the two).
+
+export type ChannelName = 'EMAIL' | 'SMS' | 'WHATSAPP' | 'PUSH'
+
+export type TemplateCategory = 'UTILITY' | 'MARKETING'
+
+export const MESSAGE_DISPATCH = 'message-dispatch' as const
+
+// Enqueued by dispatchChannel(); consumed by the message-dispatch worker (Lane A).
+// `content` keeps dispatchChannel's existing (channel, customerId, content, merchantId)
+// shape so the journey ACTION caller and its tests are untouched. Campaign sends set
+// `campaignId`; journey sends set `journeyEnrollmentId` — both optional, for attribution.
+export interface MessageDispatchJob {
+  type: 'send'
+  channel: ChannelName
+  merchantId: string
+  customerId: string
+  content: { body: string; subject?: string }
+  templateId?: string
+  journeyEnrollmentId?: string
+  campaignId?: string
+  // Deterministic link back to the originating CampaignRecipient row so Lane A can stamp
+  // CampaignRecipient.messageId when it persists the Message. Without this, a per-recipient
+  // resend makes (campaignId, customerId) ambiguous. Set by Lane B campaign sends only.
+  campaignRecipientId?: string
+}
+
+// The channel-tagged payload handed to a ChannelAdapter.send(). Each channel owns its
+// own variant, so SMS/Email can grow fields later without touching send()'s signature.
+export type ChannelSendPayload =
+  | {
+      channel: 'WHATSAPP'
+      toPhone: string
+      templateName?: string
+      languageCode?: string
+      category?: TemplateCategory
+      variables?: string[]
+      freeFormText?: string
+    }
+  | { channel: 'SMS'; toPhone: string; body: string }
+  | { channel: 'EMAIL'; toEmail: string; subject: string; html: string; text: string }
+
+// Adapters never throw for expected provider errors — they return this typed result.
+// `retryable` tells the worker whether to rethrow (BullMQ retry) or fail permanently.
+export type ChannelSendResult =
+  | { ok: true; providerMessageId: string }
+  | { ok: false; retryable: boolean; errorCode?: string; errorTitle: string }
+
+export interface ChannelAdapter {
+  readonly channel: ChannelName
+  send(payload: ChannelSendPayload): Promise<ChannelSendResult>
+}
+
+// ─── Churn score scale (Phase 0 freeze — shared so 3 Wave-1 lanes agree) ──────
+//
+// Customer.churnScore is on a 0–100 scale (Feature Guide §8.1), NOT 0–1. The ML writer
+// (Lane D), the segment builder numeric filters (Lane C), and journey threshold triggers
+// (Lane E) must all use the same scale and bands, so it is pinned here as one source of
+// truth. Band upper bounds map 1:1 onto the existing ChurnRiskLabel enum.
+export const CHURN_SCORE = {
+  MIN: 0,
+  MAX: 100,
+  // inclusive upper bound of each ChurnRiskLabel band
+  BANDS: { LOW: 25, MEDIUM: 50, HIGH: 75, CRITICAL: 100 },
+} as const
