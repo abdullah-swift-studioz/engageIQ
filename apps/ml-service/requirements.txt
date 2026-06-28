@@ -1,0 +1,12 @@
+# EngageIQ ML service (lane:ml) — runtime dependencies.
+# Pinned loosely; Python 3.11–3.14 supported. No xgboost/lightgbm on purpose:
+# scikit-learn's HistGradientBoosting gives gradient-boosted trees with zero
+# extra system libs (no libomp), which keeps the Docker image lean.
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+numpy>=1.26
+pandas>=2.2
+scikit-learn>=1.5
+joblib>=1.4

@@ -11,6 +11,11 @@ import { createMessageDispatchWorker } from './workers/message-dispatch.worker.j
 import type { AnalyticsJob } from '@engageiq/shared'
 import { createAnalyticsWorker } from './workers/analytics.worker.js'
 // lane:analytics END
+// lane:ml START
+import type { ScoringJob } from '@engageiq/shared'
+import { env } from '@engageiq/shared'
+import { createScoringWorker, registerScoringSchedulers } from './workers/scoring.worker.js'
+// lane:ml END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -115,6 +120,9 @@ const shutdown = async (): Promise<void> => {
     // lane:analytics START
     analyticsWorker.close(),
     // lane:analytics END
+    // lane:ml START
+    scoringWorker.close(),
+    // lane:ml END
   ])
   process.exit(0)
 }
@@ -122,4 +130,26 @@ const shutdown = async (): Promise<void> => {
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
-console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor + message-dispatch + analytics queues')
+console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor + message-dispatch + analytics + scoring queues')
+
+// lane:ml START
+const scoringWorker = createScoringWorker()
+
+scoringWorker.on('completed', (job: Job<ScoringJob>) => {
+  console.info(`[scoring-worker] completed  job=${job.id} task=${job.data.task} merchant=${job.data.merchantId ?? 'ALL'}`)
+})
+
+scoringWorker.on('failed', (job: Job<ScoringJob> | undefined, err: Error) => {
+  console.error(`[scoring-worker] failed     job=${job?.id} task=${job?.data.task} error=${err.message}`)
+})
+
+scoringWorker.on('error', (err: Error) => {
+  console.error('[scoring-worker] worker error:', err)
+})
+
+if (env.ML_SCHEDULER_ENABLED) {
+  registerScoringSchedulers()
+    .then(() => console.info('[scoring-worker] schedulers registered (daily full + weekly segment-discovery)'))
+    .catch((err: Error) => console.error('[scoring-worker] scheduler registration failed:', err.message))
+}
+// lane:ml END

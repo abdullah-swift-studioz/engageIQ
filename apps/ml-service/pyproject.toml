@@ -1,0 +1,21 @@
+[project]
+name = "engageiq-ml-service"
+version = "0.1.0"
+description = "EngageIQ ML & AI microservice — RFM, churn, LTV, fake-order scoring, recommendations, segment discovery"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

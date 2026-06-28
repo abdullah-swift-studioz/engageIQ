@@ -52,6 +52,22 @@ const schema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
 
   SENTRY_DSN: z.string().url().optional().or(z.literal('')).optional(),
+
+  // lane:ml START
+  // Base URL of the Python FastAPI ML microservice the scoring worker calls.
+  ML_SERVICE_URL: z.string().url().default('http://localhost:8000'),
+  // Per-request timeout (ms) for ML service calls.
+  ML_SERVICE_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+  // Cron for the daily RFM/churn/LTV/fake-order/recommendations run.
+  ML_SCORING_CRON: z.string().default('0 3 * * *'),
+  // Cron for the weekly AI segment-discovery run.
+  ML_SEGMENT_DISCOVERY_CRON: z.string().default('0 4 * * 0'),
+  // Set false to skip auto-registering the repeatable scoring schedulers on worker boot.
+  ML_SCHEDULER_ENABLED: z
+    .enum(['true', 'false'])
+    .default('true')
+    .transform((v) => v === 'true'),
+  // lane:ml END
 })
 
 const result = schema.safeParse(process.env)

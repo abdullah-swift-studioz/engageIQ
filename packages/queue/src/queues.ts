@@ -44,6 +44,14 @@ export const messageDispatchQueue = new Queue('message-dispatch', {
   defaultJobOptions,
 })
 // lane:channels END
+// lane:ml START
+export const scoringQueue = new Queue('scoring', {
+  connection: redisConnection,
+  // Scoring runs are batch + idempotent; 2 attempts is enough (the ML service may
+  // briefly be unavailable). Keep generous completed/failed retention for audit.
+  defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
+})
+// lane:ml END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -55,3 +63,6 @@ export type QueueName =
   // lane:channels START
   | 'message-dispatch'
 // lane:channels END
+  // lane:ml START
+  | 'scoring'
+// lane:ml END
