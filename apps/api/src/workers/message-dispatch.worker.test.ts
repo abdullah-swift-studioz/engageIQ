@@ -6,6 +6,7 @@ vi.mock('@engageiq/db', () => ({
     customer: { findFirst: vi.fn() },
     whatsAppTemplate: { findFirst: vi.fn() },
     message: { create: vi.fn() },
+    campaignRecipient: { updateMany: vi.fn() },
   },
 }))
 
@@ -38,6 +39,7 @@ const mockPrisma = prisma as unknown as {
   customer: { findFirst: ReturnType<typeof vi.fn> }
   whatsAppTemplate: { findFirst: ReturnType<typeof vi.fn> }
   message: { create: ReturnType<typeof vi.fn> }
+  campaignRecipient: { updateMany: ReturnType<typeof vi.fn> }
 }
 const mockQueue = messageDispatchQueue as unknown as { add: ReturnType<typeof vi.fn> }
 const mockCheckRate = checkRateLimit as unknown as ReturnType<typeof vi.fn>
@@ -170,6 +172,57 @@ describe('processMessageDispatchJob — rate limit', () => {
       'message-dispatch',
       baseJob,
       expect.objectContaining({ delay: 1234 }),
+    )
+  })
+})
+
+// Lane A ⇄ Lane B: a campaign-originated job carries campaignRecipientId, so the
+// worker must flip the originating CampaignRecipient and stamp messageId. A
+// non-campaign job (no campaignRecipientId — every test above) must never touch it.
+describe('processMessageDispatchJob — campaign recipient flip', () => {
+  const campaignJob: MessageDispatchJob = {
+    ...baseJob,
+    campaignId: 'camp_1',
+    campaignRecipientId: 'cr_1',
+  }
+
+  it('does not touch CampaignRecipient for a non-campaign (journey) send', async () => {
+    await processMessageDispatchJob(baseJob)
+    expect(mockPrisma.campaignRecipient.updateMany).not.toHaveBeenCalled()
+  })
+
+  it('flips the recipient to SENT and stamps messageId on a successful send', async () => {
+    await processMessageDispatchJob(campaignJob)
+    expect(mockPrisma.campaignRecipient.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'cr_1', merchantId: MERCHANT },
+        data: expect.objectContaining({ status: 'SENT', messageId: 'msg_1' }),
+      }),
+    )
+  })
+
+  it('flips the recipient to FAILED on a non-retryable adapter failure', async () => {
+    sendMock.mockResolvedValue({ ok: false, retryable: false, errorCode: '131009', errorTitle: 'Invalid number' })
+    await expect(processMessageDispatchJob(campaignJob)).rejects.toBeInstanceOf(UnrecoverableError)
+    expect(mockPrisma.campaignRecipient.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'cr_1', merchantId: MERCHANT },
+        data: expect.objectContaining({ status: 'FAILED', messageId: 'msg_1' }),
+      }),
+    )
+  })
+
+  it('flips the recipient to SKIPPED (no Message row) when consent is withdrawn', async () => {
+    mockPrisma.customer.findFirst.mockResolvedValue({
+      id: CUSTOMER, merchantId: MERCHANT, phone: '+92300', isSubscribedWhatsapp: false,
+    })
+    await processMessageDispatchJob(campaignJob)
+    expect(mockPrisma.message.create).not.toHaveBeenCalled()
+    expect(mockPrisma.campaignRecipient.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: 'cr_1', merchantId: MERCHANT },
+        data: expect.objectContaining({ status: 'SKIPPED' }),
+      }),
     )
   })
 })
