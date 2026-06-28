@@ -7,6 +7,10 @@ import { createJourneyExecutorWorker } from './workers/journey-executor.worker.j
 // lane:channels START
 import { createMessageDispatchWorker } from './workers/message-dispatch.worker.js'
 // lane:channels END
+// lane:analytics START
+import type { AnalyticsJob } from '@engageiq/shared'
+import { createAnalyticsWorker } from './workers/analytics.worker.js'
+// lane:analytics END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -15,6 +19,9 @@ const journeyExecutorWorker = createJourneyExecutorWorker()
 // lane:channels START
 const messageDispatchWorker = createMessageDispatchWorker()
 // lane:channels END
+// lane:analytics START
+const analyticsWorker = createAnalyticsWorker()
+// lane:analytics END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -81,6 +88,19 @@ messageDispatchWorker.on('error', (err: Error) => {
   console.error('[message-dispatch-worker] worker error:', err)
 })
 // lane:channels END
+// lane:analytics START
+analyticsWorker.on('completed', (job: Job<AnalyticsJob>) => {
+  console.info(`[analytics-worker] completed  job=${job.id} type=${job.data.type}`)
+})
+
+analyticsWorker.on('failed', (job: Job<AnalyticsJob> | undefined, err: Error) => {
+  console.error(`[analytics-worker] failed    job=${job?.id} type=${job?.data.type} error=${err.message}`)
+})
+
+analyticsWorker.on('error', (err: Error) => {
+  console.error('[analytics-worker] worker error:', err)
+})
+// lane:analytics END
 
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
@@ -92,6 +112,9 @@ const shutdown = async (): Promise<void> => {
     // lane:channels START
     messageDispatchWorker.close(),
     // lane:channels END
+    // lane:analytics START
+    analyticsWorker.close(),
+    // lane:analytics END
   ])
   process.exit(0)
 }
@@ -99,4 +122,4 @@ const shutdown = async (): Promise<void> => {
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
-console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor + message-dispatch queues')
+console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor + message-dispatch + analytics queues')

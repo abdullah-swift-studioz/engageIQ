@@ -17,7 +17,20 @@ export type {
   ActionStepConfig, ConditionStepConfig, DelayStepConfig,
   ChannelName, TemplateCategory, MessageDispatchJob,
   ChannelSendPayload, ChannelSendResult, ChannelAdapter,
+  // lane:analytics START
+  AnalyticsJob, AnalyticsPeriodKey, KpiStatus, AnalyticsAlert,
+  RealtimeActiveCampaign, RealtimeKpis,
+  RfmSegmentSize, RfmTrendPoint, RfmDashboard,
+  FunnelStepResult, FunnelResult,
+  CohortGroupBy, CohortRow, CohortResult,
+  AttributionModel, ChannelAttribution, CampaignAttributionRow, AttributionResult,
+  ProductRetentionRow, ProductRetentionResult,
+  CodBreakdownRow, CodAnalytics,
+  // lane:analytics END
 } from './types.js'
 export { SEGMENT_EVALUATE, JOURNEY_EXECUTOR, MESSAGE_DISPATCH, CHURN_SCORE } from './types.js'
+// lane:analytics START
+export { ANALYTICS } from './types.js'
+// lane:analytics END
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'

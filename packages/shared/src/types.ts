@@ -497,3 +497,171 @@ export const CHURN_SCORE = {
   // inclusive upper bound of each ChurnRiskLabel band
   BANDS: { LOW: 25, MEDIUM: 50, HIGH: 75, CRITICAL: 100 },
 } as const
+
+// lane:analytics START — Phase 4 Analytics Engine
+// Read-only DTOs returned by /api/v1/analytics/* and consumed by apps/web analytics pages.
+// (No new tables — analytics reads existing ClickHouse events + Postgres; persists only
+// Product.* retention columns, which are this lane's to write.)
+
+// The analytics BullMQ queue name (queue already exists in packages/queue; this lane adds the consumer).
+export const ANALYTICS = 'analytics' as const
+
+// Precompute jobs consumed by the analytics worker. Idempotent: each recomputes from source.
+export type AnalyticsJob =
+  | { type: 'product-analytics'; merchantId: string }
+
+export type AnalyticsPeriodKey = 'today' | '7d' | '30d' | '90d' | 'custom'
+
+// Color-coded KPI status vs target (green good / amber watch / red bad).
+export type KpiStatus = 'green' | 'amber' | 'red'
+
+export interface AnalyticsAlert {
+  level: KpiStatus
+  kind: string
+  message: string
+}
+
+// ── 4.1 Real-Time Dashboard ──────────────────────────────────────────────────
+export interface RealtimeActiveCampaign {
+  id: string
+  name: string
+  status: string
+  recipientCount: number
+  deliveredCount: number
+  revenueAttributed: number
+}
+
+export interface RealtimeKpis {
+  activeVisitors: number
+  revenue: { today: number; yesterday: number; sameDayLastWeek: number }
+  orders: { today: number; codToday: number; prepaidToday: number }
+  customers: { newToday: number; returningToday: number }
+  activeCampaigns: RealtimeActiveCampaign[]
+  alerts: AnalyticsAlert[]
+  generatedAt: string
+}
+
+// ── 4.2 RFM dashboard view (read-only; scores written by the ML lane) ─────────
+export interface RfmSegmentSize {
+  segment: string
+  count: number
+  pctOfBase: number
+}
+
+export interface RfmTrendPoint {
+  date: string
+  segment: string
+  count: number
+}
+
+export interface RfmDashboard {
+  totalCustomers: number
+  totalScored: number
+  segments: RfmSegmentSize[]
+  trend: RfmTrendPoint[]
+  generatedAt: string
+}
+
+// ── 4.3 Funnel Analysis ──────────────────────────────────────────────────────
+export interface FunnelStepResult {
+  step: string
+  count: number
+  conversionFromFirst: number // 0–1 relative to the first step
+  dropOffFromPrev: number // 0–1 lost vs the previous step
+}
+
+export interface FunnelResult {
+  steps: FunnelStepResult[]
+  totalEntered: number
+  overallConversion: number // 0–1 last step / first step
+  from: string
+  to: string
+}
+
+// ── 4.4 Cohort Retention ─────────────────────────────────────────────────────
+export type CohortGroupBy = 'first_purchase_month' | 'product_category' | 'acquisition_channel' | 'rfm_segment'
+
+export interface CohortRow {
+  cohort: string
+  cohortSize: number
+  // retention[i] = fraction (0–1) of the cohort active in period i (period 0 = 100%); null = future/no data
+  retention: Array<number | null>
+}
+
+export interface CohortResult {
+  groupBy: CohortGroupBy
+  periods: number
+  rows: CohortRow[]
+  generatedAt: string
+}
+
+// ── 4.5 Revenue Attribution ──────────────────────────────────────────────────
+export type AttributionModel = 'last_touch' | 'first_touch' | 'linear' | 'time_decay'
+
+export interface ChannelAttribution {
+  channel: string
+  revenue: number
+  orders: number
+}
+
+export interface CampaignAttributionRow {
+  campaignId: string
+  name: string
+  channel: string
+  revenue: number
+  recipientCount: number
+  roi: number | null // revenue per recipient (proxy ROI); null when recipientCount = 0
+}
+
+export interface AttributionResult {
+  model: AttributionModel
+  byChannel: ChannelAttribution[]
+  byCampaign: CampaignAttributionRow[]
+  totalAttributed: number
+  from: string
+  to: string
+}
+
+// ── 4.5 Product-Level Retention ──────────────────────────────────────────────
+export interface ProductRetentionRow {
+  productId: string
+  shopifyProductId: string
+  title: string
+  repurchaseRate90d: number | null
+  crossSellRate: number | null
+  returnRate: number | null
+  avgBuyerLtv: string | null // Decimal serialized as string
+  avgDaysToSecondPurchase: number | null
+  retentionValue: number | null // composite ranking score
+}
+
+export interface ProductRetentionResult {
+  products: ProductRetentionRow[]
+  computedAt: string | null
+}
+
+// ── 4.5 COD Analytics ────────────────────────────────────────────────────────
+export interface CodBreakdownRow {
+  key: string // city / courier / category / value-band label
+  total: number
+  accepted: number
+  rejected: number
+  acceptanceRate: number // 0–1
+}
+
+export interface CodAnalytics {
+  totalCodOrders: number
+  acceptanceRate: number // 0–1
+  rejectionRate: number // 0–1
+  fakeOrderRate: number // 0–1 (orders with fakeScore above the high threshold)
+  codToPrepaidConversion: number | null // 0–1, null when no COD customers
+  avgDaysToCollect: number | null
+  netRevenueCod: number
+  netRevenuePrepaid: number
+  byCity: CodBreakdownRow[]
+  byCourier: CodBreakdownRow[]
+  byValueBand: CodBreakdownRow[]
+  from: string
+  to: string
+}
+// lane:analytics END
