@@ -7,6 +7,8 @@ import {
   deleteJourneyHandler,
   activateJourneyHandler,
   pauseJourneyHandler,
+  saveJourneyGraphHandler,
+  archiveJourneyHandler,
   listEnrollmentsHandler,
 } from './controller.js'
 
@@ -19,6 +21,8 @@ const journeysRoutes: FastifyPluginAsync = async (fastify) => {
   // POST /:id/activate and /:id/pause MUST be registered before GET /:id to avoid param wildcard conflict
   fastify.post('/:id/activate', activateJourneyHandler)
   fastify.post('/:id/pause', pauseJourneyHandler)
+  fastify.post('/:id/archive', archiveJourneyHandler)
+  fastify.put('/:id/graph', saveJourneyGraphHandler)
   fastify.get('/:id/enrollments', listEnrollmentsHandler)
 
   fastify.get('/:id', getJourneyHandler)

@@ -155,6 +155,11 @@ export default function JourneyDetailPage() {
         <a href={`/journeys/${journey.id}/enrollments`} style={{ padding: '0.4rem 1rem', background: '#f3f4f6', color: '#111', textDecoration: 'none', borderRadius: '4px' }}>
           View Enrollments ({journey.enrollmentCount})
         </a>
+        {/* lane:journey START — entry point to the visual builder (canonical 6.1) */}
+        <a href={`/journeys/builder/${journey.id}`} style={{ padding: '0.4rem 1rem', background: '#4f46e5', color: '#fff', textDecoration: 'none', borderRadius: '4px' }}>
+          Open Visual Builder
+        </a>
+        {/* lane:journey END */}
       </div>
 
       <section style={{ marginBottom: '2rem' }}>

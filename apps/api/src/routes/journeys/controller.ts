@@ -6,6 +6,7 @@ import { JOURNEY_EXECUTOR } from '@engageiq/shared'
 import {
   CreateJourneyBodySchema,
   UpdateJourneyBodySchema,
+  SaveGraphBodySchema,
   JourneyParamsSchema,
   ListJourneysQuerySchema,
   ListEnrollmentsQuerySchema,
@@ -18,6 +19,10 @@ import {
   deleteJourney,
   activateJourney,
   pauseJourney,
+  saveJourneyGraph,
+  archiveJourney,
+  GraphValidationError,
+  JourneyNotDraftError,
   listEnrollments,
 } from './service.js'
 
@@ -161,6 +166,65 @@ export async function activateJourneyHandler(
     }
     throw err
   }
+}
+
+export async function saveJourneyGraphHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const paramsParsed = JourneyParamsSchema.safeParse(request.params)
+  if (!paramsParsed.success) {
+    await validationError(reply, 'Invalid journey ID')
+    return
+  }
+  const parsed = SaveGraphBodySchema.safeParse(request.body)
+  if (!parsed.success) {
+    await validationError(reply, parsed.error.issues.map((i) => i.message).join(', '))
+    return
+  }
+
+  try {
+    const journey = await saveJourneyGraph(
+      request.user.merchantId,
+      paramsParsed.data.id,
+      parsed.data.nodes,
+    )
+    if (!journey) {
+      await notFound(reply)
+      return
+    }
+    await reply.send({ success: true, data: journey })
+  } catch (err) {
+    if (err instanceof GraphValidationError) {
+      await validationError(reply, err.message)
+      return
+    }
+    if (err instanceof JourneyNotDraftError) {
+      await reply.status(409).send({
+        success: false,
+        error: { code: 'JOURNEY_NOT_DRAFT', message: err.message },
+      })
+      return
+    }
+    throw err
+  }
+}
+
+export async function archiveJourneyHandler(
+  request: FastifyRequest,
+  reply: FastifyReply,
+): Promise<void> {
+  const paramsParsed = JourneyParamsSchema.safeParse(request.params)
+  if (!paramsParsed.success) {
+    await validationError(reply, 'Invalid journey ID')
+    return
+  }
+  const journey = await archiveJourney(request.user.merchantId, paramsParsed.data.id)
+  if (!journey) {
+    await notFound(reply)
+    return
+  }
+  await reply.send({ success: true, data: journey })
 }
 
 export async function pauseJourneyHandler(
