@@ -1,8 +1,20 @@
 # EngageIQ — Project Context
 
 > Last updated: 2026-06-28
-> Current phase: Phase 0 schema freeze COMPLETE (commit `08d46a8`, on `main`) — ready to launch Wave-1 lanes
-> Next action: create Wave-1 lane worktrees per ORCHESTRATION.md §6.2 (A Channels, C Analytics, D ML, E Journey Builder; B Campaigns against the frozen ChannelAdapter contract)
+> Current phase: **Wave-1 integration COMPLETE** (commit `a0f3d3c`, on `main`, pushed) — all 5 parallel lanes merged
+> Next action: Wave 2 per ORCHESTRATION.md §12 (Lane F Platform, 6.4 Email/COD, 6.5 on-site + flow library). FIRST add a boot smoke-test to `scripts/preflight.sh` (see deferred list) so the gate catches boot failures before the next wave.
+
+## Wave 1 Integration (2026-06-28) — 5 lanes merged to main
+
+All five Wave-1 lanes are merged into `main` in dependency order, each gated by `scripts/preflight.sh` + a manual boot-check (`/health`=200). Full detail in `updates/2026-06-28_integration_wave1.md`. Final state: preflight green (183 api tests), server boots, `/health`=200.
+
+**Pre-merge boot restoration (3 stacked pre-existing blockers — the API had never booted; preflight never starts the server so it never caught them):**
+- `0d92620` `@fastify/rate-limit` `^10`→`^9`; `122df48` `@fastify/jwt` `^10`→`^8` (both need Fastify 5, app is Fastify 4; behavior-neutral).
+- `7141af1` converted 6 plugins/routes (`authenticate`, `api-key`, `auth`, `shopify`, `backfill`, `sdk`) from an invalid sync-`void` Fastify signature to `async` (avvio plugin-load timeout). `11a8f83` did the same for the channels `whatsappWebhookRoutes`.
+
+**Merge order & commits:** Channels `af5c425` → Analytics `4804d1c` → ML `79e6cc3` → Journey Builder `4c3cee9` → Campaigns `a0f3d3c`. All rebase conflicts were `// lane:<name>` append-blocks resolved keep-both; no schema-touching rebase, no genuine logic conflict.
+
+**Lane A⇄B last-mile fix (`38dd98e`, in the campaigns merge):** the channels message-dispatch worker now flips `CampaignRecipient` PENDING→SENT/FAILED/SKIPPED and stamps `messageId` (previously it only tagged `Message.campaignId`, leaving recipients PENDING forever). `defaultDispatch` left using its own local queue handle (repointing to Channels' exported `messageDispatchQueue` is not behavior-neutral — differs in `defaultJobOptions`).
 
 ## Phase 0 Schema Freeze (enabling work — not a roadmap milestone)
 
@@ -46,6 +58,11 @@ EngageIQ is a full-stack multi-tenant customer engagement platform for Shopify m
 - **3.3 — Custom Event API & Multi-Store Unification** (2026-06-02) — P1 bug fix: stub customer upgrade in customer.processor.ts prevents @@unique([merchantId, email]) constraint violation on Shopify `customers/create` webhook; `POST /api/v1/events` Custom Event API (API key auth, 1000 req/min rate limit, ClickHouse ingestion, HTTP 201); multi-store.service.ts with assignGroupCustomerId (agency-scoped group linking via email/phone match) and getGroupMembers; `GET /api/v1/customers/:id/group` group profile endpoint; Cross-Store Presence section in Remix customer detail page; 15 Vitest tests passing
 - **4.1 — Segment Builder — Dynamic Conditions** (2026-06-07) — ConditionOperator (22 operators), SegmentGroup recursive condition tree, FIELD_REGISTRY (20 fields), condition-validator.ts, segment-evaluator.ts (compileToPrismaWhere SQL path + evaluateProfile in-memory path + evaluateProfileMemberships), BullMQ segment-evaluate worker, full CRUD routes (/api/v1/segments), wired fire-and-forget triggers in customer/identity/SDK paths; Remix segment list + SegmentBuilder component + new/edit pages; 33 Vitest tests passing
 - **4.2 — Journey Executor — Entry / Exit Evaluation** (2026-06-10) — BullMQ single-job-per-step executor: enroll_customer + execute_step (TRIGGER/ACTION/DELAY/CONDITION) + scheduled_fire; checkJourneyEntry (4 trigger types, 3 re-entry rules); checkJourneyExit (exitTrigger matching); dispatchChannel stub; Journey CRUD routes (create/list/get/update/delete/activate/pause/enrollments); fire-and-forget hooks wired in segment-evaluator, order.processor, events/service; buildProfileFromCustomer exported from segment-evaluator; Remix journey list/create/detail/enrollments pages; 20 Vitest tests passing
+- **6.3 — WhatsApp Channel Adapter (Channels lane)** (2026-06-28, merged `af5c425`) — real WhatsApp Cloud send behind `ChannelAdapter`; `message-dispatch` queue + worker (consent gate, per-merchant rate limit, template substitution, SENT/FAILED Message rows + CampaignRecipient flip); WhatsApp webhook (status/STOP/opt-out); template CRUD + Meta submit; message log + Urdu RTL editor. SMS/Email remain stubs behind the interface (deferred).
+- **Phase 4 — Analytics Engine (Analytics lane)** (2026-06-28, merged `4804d1c`) — 4.1 real-time dashboard, 4.3 funnel (windowFunnel), 4.4 cohort retention, 4.5 revenue attribution + product retention + COD analytics; analytics worker (product-analytics precompute) + analytics routes + web pages. Reads existing ClickHouse + Postgres.
+- **ML/AI Service — 4.2 RFM / 5.3 segment discovery / 7.1 churn / 7.2 LTV+recommendations / 7.3 fake-order (ML lane)** (2026-06-28, merged `79e6cc3`) — Python FastAPI service (`apps/ml-service`) + Node `scoring` queue/worker; writes existing score columns + `Recommendation`/`ModelRun` rows (no schema change); daily `full` bundle + weekly segment-discovery schedulers (gated by `ML_SCHEDULER_ENABLED`).
+- **6.1 — Visual Journey Builder (Journey lane)** (2026-06-28, merged `4c3cee9`) — React Flow drag-and-drop canvas (Trigger/Action/Condition/Delay/A-B Split), save as JSON graph into `journey_steps`, activate/pause/archive; `@xyflow/react` added to apps/web.
+- **6.1 — Campaign Engine (Campaigns lane)** (2026-06-28, merged `a0f3d3c`) — one-time blasts to a segment; `campaign-send` worker fans out one MessageDispatchJob per eligible recipient onto Channels' `message-dispatch` queue (tagging campaignId + campaignRecipientId); campaign CRUD + scheduling + dashboard. Channels' worker flips CampaignRecipient PENDING→SENT/FAILED/SKIPPED + stamps messageId (`38dd98e`).
 
 ## Completed Phases (recent first)
 
@@ -76,6 +93,17 @@ Phase 2 — Shopify Integration & Data Ingestion ✓
 - **`bullmq` and `@prisma/client` added to `@engageiq/api`** — needed for Worker class and Prisma namespace
 
 ## Known Issues / Blockers
+
+### Wave-1 deferred follow-ups (from integration 2026-06-28)
+- **Add a boot smoke-test to `scripts/preflight.sh`** (start server → curl `/health` → assert 200 → stop). The gate passed through THREE separate pre-existing boot failures (rate-limit, jwt, sync-void signatures) because it never boots the server. Highest-value gap to close before Wave 2.
+- **Fastify 5 migration (Phase 10)** — `@fastify/jwt` is pinned `^8` and `@fastify/rate-limit` `^9` for Fastify-4 compat; both can return to v10 after the framework upgrade.
+- **SMS half of 6.3** — SMS adapter still a stub behind `ChannelAdapter`.
+- **Email (6.4)** — not built; extends the Channels lane.
+- **Sync fake-order scoring call in `order.processor.ts`** — ML fake-order score is batch-only; wire a synchronous call at order ingestion for real-time COD gating.
+- **Discovered-cluster → Segment promotion** — ML 5.3 surfaces clusters (`DiscoveredSegment`) but one-click promotion to a real Segment is not wired.
+- **`refund.processor.ts` line-item population** — `Order.returns_data` exists but isn't populated, so `Product.returnRate` stays uncomputable.
+- **CampaignRecipient DELIVERED/READ propagation** — the WhatsApp webhook updates `Message` delivery status but doesn't propagate DELIVERED/READ back to `CampaignRecipient` (recipient stops at SENT).
+- **Campaigns `defaultDispatch`** uses its own local `Queue('message-dispatch')` handle, not Channels' exported `messageDispatchQueue` — repointing is not behavior-neutral (`defaultJobOptions` differs: attempts 1 vs 3+backoff). Left as-is by design.
 
 - `pino-pretty` referenced in `apps/api/src/index.ts` but not yet in package.json — add before first `dev` run
 - `prettier-plugin-tailwindcss` in `.prettierrc` but only in `apps/web/` devDeps — may need to be hoisted to root for monorepo-wide formatting
