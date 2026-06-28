@@ -1,7 +1,12 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-06-10
-> Current phase: Phase 5 — Campaign Execution & Channel Integration (Not Started)
+> Last updated: 2026-06-28
+> Current phase: Phase 0 schema freeze COMPLETE (commit `08d46a8`, on `main`) — ready to launch Wave-1 lanes
+> Next action: create Wave-1 lane worktrees per ORCHESTRATION.md §6.2 (A Channels, C Analytics, D ML, E Journey Builder; B Campaigns against the frozen ChannelAdapter contract)
+
+## Phase 0 Schema Freeze (enabling work — not a roadmap milestone)
+
+The schema is now FROZEN for parallel work. 7 new models (`WhatsAppTemplate`, `Message`, `CampaignRecipient`, `Product`, `Recommendation`, `ModelRun`, `SavedView`) + 6 new enums were added in one migration `20260628172239_phase0_schema_freeze`, verified to apply cleanly from scratch. The Wave-0 `ChannelAdapter` / `dispatchChannel` / `MessageDispatchJob` contract is frozen in `packages/shared/src/types.ts` (Lane A implements, Lane B consumes). Tooling added: `db:migrate:deploy` (lanes apply only) and `scripts/preflight.sh` (the §10 gate — currently green). Lanes must NOT run `prisma migrate dev` or edit `schema.prisma`. See `updates/2026-06-28_phase0_schema-freeze.md` for the full rundown, decisions, and open follow-ups.
 
 ## Project Summary
 
@@ -74,7 +79,10 @@ Phase 2 — Shopify Integration & Data Ingestion ✓
 
 - `pino-pretty` referenced in `apps/api/src/index.ts` but not yet in package.json — add before first `dev` run
 - `prettier-plugin-tailwindcss` in `.prettierrc` but only in `apps/web/` devDeps — may need to be hoisted to root for monorepo-wide formatting
-- Prisma migration not run yet (no live DB) — run `pnpm db:migrate` inside `packages/db` after `docker compose up -d`
+- ~~Prisma migration not run yet (no live DB)~~ **RESOLVED 2026-06-28**: a live Postgres `engageiq` DB is up on `localhost:5432`; all 9 migrations are applied and seeded. (A stale `_prisma_migrations` checksum for `20260610110533` was also resynced to the committed file — metadata-only, no data touched.)
+- **GIN-index gotcha (recurring):** `customers_anon_ids_idx` exists only in raw migration SQL, not the Prisma model, so EVERY `prisma migrate dev` re-emits a `DROP INDEX customers_anon_ids_idx`. Delete that line from any new migration before applying (done in `20260628172239` and earlier in commit `7552054`). `prisma migrate dev` is also non-interactive-unfriendly in this harness — wrap it in `script -q /dev/null …` to give it a TTY.
+- **Web prod build fixed (2026-06-28):** `apps/web` `vite build` was broken since phase 3.1 (`~/` alias resolved by tsconfig but not Vite). Fixed via a `resolve.alias` in `apps/web/vite.config.ts`. `pnpm build` (and therefore `scripts/preflight.sh`) is now green.
+- **Refund line-items not persisted yet:** `Order.returns_data` column exists but `refund.processor.ts` does not populate it — `Product.returnRate` stays uncomputable until it does (app-code follow-up for Lane C's wave).
 - `JourneyEnrollment` has only `@@index([journeyId, customerId])` — not `@@unique`; multiple enrollments per customer per journey are intentional (ALLOW re-entry rule)
 - `@clickhouse/client` emits benign WARN logs for DDL `exec()` calls (socket closed before response fully read); suppress in production logger config
 - `SENTRY_DSN=` empty value in `.env` fails Zod `url()` validation — commented out in `.env` (keep blank entries commented)
