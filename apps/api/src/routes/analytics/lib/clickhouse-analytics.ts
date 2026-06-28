@@ -29,8 +29,8 @@ export async function getRevenueBetween(merchantId: string, from: Date, to: Date
       FROM ${TABLE}
       WHERE merchant_id = {merchantId:String}
         AND event_type = 'purchase'
-        AND timestamp >= {from:DateTime64(3)}
-        AND timestamp <  {to:DateTime64(3)}
+        AND timestamp >= {from:DateTime64(3, 'UTC')}
+        AND timestamp <  {to:DateTime64(3, 'UTC')}
     `,
     { merchantId, from: toClickHouseDateTime(from), to: toClickHouseDateTime(to) },
   )
@@ -50,8 +50,8 @@ export async function countEventsBetween(
       FROM ${TABLE}
       WHERE merchant_id = {merchantId:String}
         AND event_type = {eventType:String}
-        AND timestamp >= {from:DateTime64(3)}
-        AND timestamp <  {to:DateTime64(3)}
+        AND timestamp >= {from:DateTime64(3, 'UTC')}
+        AND timestamp <  {to:DateTime64(3, 'UTC')}
     `,
     { merchantId, eventType, from: toClickHouseDateTime(from), to: toClickHouseDateTime(to) },
   )
@@ -69,8 +69,8 @@ export async function countDistinctVisitorsBetween(
       SELECT uniqExact(coalesce(customer_id, anon_id)) AS v
       FROM ${TABLE}
       WHERE merchant_id = {merchantId:String}
-        AND timestamp >= {from:DateTime64(3)}
-        AND timestamp <  {to:DateTime64(3)}
+        AND timestamp >= {from:DateTime64(3, 'UTC')}
+        AND timestamp <  {to:DateTime64(3, 'UTC')}
     `,
     { merchantId, from: toClickHouseDateTime(from), to: toClickHouseDateTime(to) },
   )
@@ -119,8 +119,8 @@ export async function computeFunnel(
           windowFunnel({window:UInt32})(toDateTime(timestamp), ${conditions}) AS level
         FROM ${TABLE}
         WHERE merchant_id = {merchantId:String}
-          AND timestamp >= {from:DateTime64(3)}
-          AND timestamp <  {to:DateTime64(3)}
+          AND timestamp >= {from:DateTime64(3, 'UTC')}
+          AND timestamp <  {to:DateTime64(3, 'UTC')}
           AND visitor != ''
         GROUP BY visitor
       )
