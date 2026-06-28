@@ -16,6 +16,11 @@ import customersRoutes from './routes/customers/index.js'
 import eventsRoutes from './routes/events/index.js'
 import segmentsRoutes from './routes/segments/index.js'
 import journeysRoutes from './routes/journeys/index.js'
+// lane:channels START
+import whatsappTemplatesRoutes from './routes/whatsapp-templates/index.js'
+import messagesRoutes from './routes/messages/index.js'
+import whatsappWebhookRoutes from './routes/webhooks/whatsapp.js'
+// lane:channels END
 
 const app = Fastify({
   logger: {
@@ -68,6 +73,11 @@ await app.register(customersRoutes, { prefix: '/api/v1/customers' })
 await app.register(eventsRoutes, { prefix: '/api/v1/events' })
 await app.register(segmentsRoutes, { prefix: '/api/v1/segments' })
 await app.register(journeysRoutes, { prefix: '/api/v1/journeys' })
+// lane:channels START
+await app.register(whatsappTemplatesRoutes, { prefix: '/api/v1/whatsapp-templates' })
+await app.register(messagesRoutes, { prefix: '/api/v1/messages' })
+await app.register(whatsappWebhookRoutes, { prefix: '/webhooks' })
+// lane:channels END
 
 app.get('/health', () => ({
   status: 'ok',

@@ -1,14 +1,20 @@
 import type { Job } from 'bullmq'
-import type { ShopifyWebhookJob, BackfillJobData, SegmentEvaluateJobPayload, JourneyExecutorJob } from '@engageiq/shared'
+import type { ShopifyWebhookJob, BackfillJobData, SegmentEvaluateJobPayload, JourneyExecutorJob, MessageDispatchJob } from '@engageiq/shared'
 import { createWebhookWorker } from './workers/webhook.worker.js'
 import { createBackfillWorker } from './workers/backfill.worker.js'
 import { createSegmentEvaluateWorker } from './workers/segment-evaluate.worker.js'
 import { createJourneyExecutorWorker } from './workers/journey-executor.worker.js'
+// lane:channels START
+import { createMessageDispatchWorker } from './workers/message-dispatch.worker.js'
+// lane:channels END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
 const segmentEvaluateWorker = createSegmentEvaluateWorker()
 const journeyExecutorWorker = createJourneyExecutorWorker()
+// lane:channels START
+const messageDispatchWorker = createMessageDispatchWorker()
+// lane:channels END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -62,6 +68,20 @@ journeyExecutorWorker.on('error', (err: Error) => {
   console.error('[journey-executor-worker] worker error:', err)
 })
 
+// lane:channels START
+messageDispatchWorker.on('completed', (job: Job<MessageDispatchJob>) => {
+  console.info(`[message-dispatch-worker] completed  job=${job.id} channel=${job.data.channel}`)
+})
+
+messageDispatchWorker.on('failed', (job: Job<MessageDispatchJob> | undefined, err: Error) => {
+  console.error(`[message-dispatch-worker] failed    job=${job?.id} channel=${job?.data.channel} error=${err.message}`)
+})
+
+messageDispatchWorker.on('error', (err: Error) => {
+  console.error('[message-dispatch-worker] worker error:', err)
+})
+// lane:channels END
+
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
   await Promise.all([
@@ -69,6 +89,9 @@ const shutdown = async (): Promise<void> => {
     backfillWorker.close(),
     segmentEvaluateWorker.close(),
     journeyExecutorWorker.close(),
+    // lane:channels START
+    messageDispatchWorker.close(),
+    // lane:channels END
   ])
   process.exit(0)
 }
@@ -76,4 +99,4 @@ const shutdown = async (): Promise<void> => {
 process.on('SIGTERM', shutdown)
 process.on('SIGINT', shutdown)
 
-console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor queues')
+console.info('[workers] started — webhook-ingestion + backfill + segment-evaluate + journey-executor + message-dispatch queues')

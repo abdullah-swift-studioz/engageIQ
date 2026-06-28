@@ -38,6 +38,13 @@ export const segmentEvaluateQueue = new Queue('segment-evaluate', {
   defaultJobOptions,
 })
 
+// lane:channels START
+export const messageDispatchQueue = new Queue('message-dispatch', {
+  connection: redisConnection,
+  defaultJobOptions,
+})
+// lane:channels END
+
 export type QueueName =
   | 'webhook-ingestion'
   | 'backfill'
@@ -45,3 +52,6 @@ export type QueueName =
   | 'journey-executor'
   | 'analytics'
   | 'segment-evaluate'
+  // lane:channels START
+  | 'message-dispatch'
+// lane:channels END

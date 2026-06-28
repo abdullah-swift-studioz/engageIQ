@@ -33,6 +33,16 @@ const schema = z.object({
   META_WHATSAPP_TOKEN: z.string().optional(),
   META_WHATSAPP_PHONE_NUMBER_ID: z.string().optional(),
   META_WEBHOOK_VERIFY_TOKEN: z.string().optional(),
+  // lane:channels START
+  // Meta App Secret — HMAC-verifies inbound WhatsApp webhook signatures (X-Hub-Signature-256).
+  // Optional so the app boots credential-free; the webhook rejects unsigned payloads only when set.
+  META_APP_SECRET: z.string().optional(),
+  // Graph API version for WhatsApp Cloud API calls. Never hardcode the version in a URL string.
+  META_API_VERSION: z.string().default('v21.0'),
+  // WhatsApp Business Account (WABA) id — required ONLY to submit templates to Meta for approval.
+  // Absent → template submit sets status=PENDING locally (offline-testable flow) without an API call.
+  META_WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().optional(),
+  // lane:channels END
 
   TWILIO_ACCOUNT_SID: z.string().optional(),
   TWILIO_AUTH_TOKEN: z.string().optional(),
