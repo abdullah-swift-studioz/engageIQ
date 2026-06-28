@@ -1,6 +1,6 @@
 import { prisma } from '@engageiq/db'
-import { EnrollmentStatus } from '@prisma/client'
-import type { CreateJourneyBody, UpdateJourneyBody } from './schema.js'
+import { EnrollmentStatus, JourneyStepType } from '@prisma/client'
+import type { CreateJourneyBody, UpdateJourneyBody, GraphNode } from './schema.js'
 
 export async function createJourney(merchantId: string, body: CreateJourneyBody) {
   return prisma.journey.create({
@@ -123,6 +123,141 @@ export async function pauseJourney(merchantId: string, journeyId: string) {
   return prisma.journey.update({
     where: { id: journeyId },
     data: { status: 'PAUSED' },
+  })
+}
+
+// ─── Visual Journey Builder graph save (lane:journey) ─────────────────────────
+
+/** Structural problem with the posted graph → maps to HTTP 400. */
+export class GraphValidationError extends Error {
+  override name = 'GraphValidationError'
+}
+
+/** Graph edits are only allowed on DRAFT journeys → maps to HTTP 409. */
+export class JourneyNotDraftError extends Error {
+  override name = 'JourneyNotDraftError'
+}
+
+/**
+ * Pure validation of the canvas graph against the executor's structural contract. DB-free so it
+ * can be unit-tested in isolation. An empty graph is allowed (clearing a draft). A non-empty graph
+ * must be a single tree rooted at exactly one TRIGGER: every other node has exactly one existing
+ * parent, no node parents itself, and there are no cycles. Branch-label correctness (CONDITION
+ * true/false) is guaranteed by the builder writing the edge handle into each child's label, so it
+ * is intentionally NOT enforced here — drafts may be partially wired.
+ */
+export function validateGraph(nodes: GraphNode[]): void {
+  if (nodes.length === 0) return
+
+  const ids = new Set<string>()
+  for (const n of nodes) {
+    if (ids.has(n.tempId)) throw new GraphValidationError(`Duplicate node id: ${n.tempId}`)
+    ids.add(n.tempId)
+  }
+
+  const triggers = nodes.filter((n) => n.stepType === 'TRIGGER')
+  if (triggers.length === 0) {
+    throw new GraphValidationError('Journey must have exactly one TRIGGER node')
+  }
+  if (triggers.length > 1) {
+    throw new GraphValidationError('Journey must have only one TRIGGER node')
+  }
+  const trigger = triggers[0]!
+  if (trigger.parentTempId !== null) {
+    throw new GraphValidationError('The TRIGGER node must be the root (no incoming connection)')
+  }
+
+  for (const n of nodes) {
+    if (n.tempId === trigger.tempId) continue
+    if (n.parentTempId === null) {
+      throw new GraphValidationError(
+        `Node "${n.label ?? n.stepType}" is not connected to the journey`,
+      )
+    }
+    if (n.parentTempId === n.tempId) {
+      throw new GraphValidationError('A node cannot connect to itself')
+    }
+    if (!ids.has(n.parentTempId)) {
+      throw new GraphValidationError(`Node references a missing parent: ${n.parentTempId}`)
+    }
+  }
+
+  // Acyclic: walking parent pointers from any node must terminate at the trigger root.
+  const byId = new Map(nodes.map((n) => [n.tempId, n]))
+  for (const start of nodes) {
+    const seen = new Set<string>()
+    let cur: GraphNode | undefined = start
+    while (cur && cur.parentTempId !== null) {
+      if (seen.has(cur.tempId)) throw new GraphValidationError('The journey graph contains a cycle')
+      seen.add(cur.tempId)
+      cur = byId.get(cur.parentTempId)
+    }
+  }
+}
+
+/**
+ * Replace a DRAFT journey's entire step graph in one transaction. Temp ids are resolved to real
+ * cuids in a two-pass create (create all parentless, then wire parentStepId), so sibling references
+ * resolve regardless of input order. DRAFT-only because ACTIVE/PAUSED journeys may have enrollments
+ * whose currentStepId references steps we would delete.
+ */
+export async function saveJourneyGraph(
+  merchantId: string,
+  journeyId: string,
+  nodes: GraphNode[],
+) {
+  const existing = await prisma.journey.findFirst({
+    where: { id: journeyId, merchantId },
+    select: { id: true, status: true },
+  })
+  if (!existing) return null
+  if (existing.status !== 'DRAFT') {
+    throw new JourneyNotDraftError('Only DRAFT journeys can be edited in the builder')
+  }
+
+  validateGraph(nodes)
+
+  await prisma.$transaction(async (tx) => {
+    await tx.journeyStep.deleteMany({ where: { journeyId } })
+
+    const idMap = new Map<string, string>()
+    for (const n of nodes) {
+      const created = await tx.journeyStep.create({
+        data: {
+          journeyId,
+          parentStepId: null,
+          stepType: n.stepType as JourneyStepType,
+          label: n.label,
+          config: (n.config ?? {}) as object,
+          positionX: n.positionX,
+          positionY: n.positionY,
+        },
+        select: { id: true },
+      })
+      idMap.set(n.tempId, created.id)
+    }
+
+    for (const n of nodes) {
+      if (n.parentTempId === null) continue
+      await tx.journeyStep.update({
+        where: { id: idMap.get(n.tempId)! },
+        data: { parentStepId: idMap.get(n.parentTempId)! },
+      })
+    }
+  })
+
+  return getJourney(merchantId, journeyId)
+}
+
+export async function archiveJourney(merchantId: string, journeyId: string) {
+  const existing = await prisma.journey.findFirst({
+    where: { id: journeyId, merchantId },
+    select: { id: true },
+  })
+  if (!existing) return null
+  return prisma.journey.update({
+    where: { id: journeyId },
+    data: { status: 'ARCHIVED' },
   })
 }
 
