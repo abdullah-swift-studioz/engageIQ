@@ -665,3 +665,40 @@ export interface CodAnalytics {
   to: string
 }
 // lane:analytics END
+// lane:ml START
+// ─── ML scoring queue (Lane D) ────────────────────────────────────────────────
+// The scoring worker reads tenant-scoped features from Postgres, calls the Python
+// ML service, and persists scores (RFM/churn/LTV/fake-order) + recommendations +
+// ModelRun audit rows. One job per (task, merchant); `merchantId` omitted means all
+// merchants. `task: 'full'` runs the daily bundle (rfm + churn + ltv + fake-order +
+// recommendations). Segment discovery (5.3) is weekly and its own task.
+export const SCORING = 'scoring' as const
+
+export type ScoringTask =
+  | 'rfm'
+  | 'churn'
+  | 'ltv'
+  | 'fake-order'
+  | 'recommendations'
+  | 'segment-discovery'
+  | 'full'
+
+export interface ScoringJob {
+  task: ScoringTask
+  merchantId?: string // omit = every merchant
+}
+
+// A discovered cluster returned by the ML service's segment-discovery endpoint,
+// surfaced (not auto-created) so a merchant can one-click promote it to a Segment.
+export interface DiscoveredSegment {
+  label: string
+  size: number
+  avgLtv: number
+  avgRecencyDays: number
+  avgFrequency: number
+  avgMonetary: number
+  description: string
+  recommendedAction: string
+  customerIds: string[]
+}
+// lane:ml END

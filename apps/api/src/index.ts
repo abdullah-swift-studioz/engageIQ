@@ -24,6 +24,9 @@ import whatsappWebhookRoutes from './routes/webhooks/whatsapp.js'
 // lane:analytics START
 import analyticsRoutes from './routes/analytics/index.js'
 // lane:analytics END
+// lane:ml START
+import recommendationsRoutes from './routes/recommendations/index.js'
+// lane:ml END
 
 const app = Fastify({
   logger: {
@@ -84,6 +87,9 @@ await app.register(whatsappWebhookRoutes, { prefix: '/webhooks' })
 // lane:analytics START
 await app.register(analyticsRoutes, { prefix: '/api/v1/analytics' })
 // lane:analytics END
+// lane:ml START
+await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
+// lane:ml END
 
 app.get('/health', () => ({
   status: 'ok',

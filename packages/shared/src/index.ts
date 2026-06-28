@@ -34,3 +34,7 @@ export { ANALYTICS } from './types.js'
 // lane:analytics END
 export { ROLE_PERMISSIONS, hasPermission, isAgencyRole } from './roles.js'
 export type { Permission } from './roles.js'
+// lane:ml START
+export { SCORING } from './types.js'
+export type { ScoringTask, ScoringJob, DiscoveredSegment } from './types.js'
+// lane:ml END
