@@ -211,7 +211,7 @@ export async function processWebhookBody(body: Record<string, unknown>): Promise
 
 // ─── Route ─────────────────────────────────────────────────────────────────
 
-function whatsappWebhookRoutes(fastify: FastifyInstance): void {
+async function whatsappWebhookRoutes(fastify: FastifyInstance): Promise<void> {
   // Verification handshake.
   fastify.get('/whatsapp', async (request, reply) => {
     const q = request.query as Record<string, string | undefined>
