@@ -11,7 +11,7 @@ declare module 'fastify' {
   }
 }
 
-function apiKeyPlugin(fastify: FastifyInstance): void {
+async function apiKeyPlugin(fastify: FastifyInstance): Promise<void> {
   fastify.decorate('authenticateApiKey', async function (request: FastifyRequest, reply: FastifyReply) {
     const authHeader = request.headers.authorization
     if (!authHeader || !authHeader.startsWith('Bearer ')) {

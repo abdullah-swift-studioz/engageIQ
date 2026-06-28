@@ -18,7 +18,7 @@ declare module 'fastify' {
   }
 }
 
-function authenticatePlugin(fastify: FastifyInstance): void {
+async function authenticatePlugin(fastify: FastifyInstance): Promise<void> {
   fastify.decorate('authenticate', async function (request: FastifyRequest, reply: FastifyReply) {
     try {
       await request.jwtVerify()

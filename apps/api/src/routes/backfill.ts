@@ -19,7 +19,7 @@ function calcPercent(
   return Math.min(94, Math.round(customerPct * 30 + orderPct * 65))
 }
 
-function backfillRoutes(fastify: FastifyInstance): void {
+async function backfillRoutes(fastify: FastifyInstance): Promise<void> {
   // GET /backfill/status
   // Returns the live backfill progress for the authenticated merchant.
   fastify.get('/status', {

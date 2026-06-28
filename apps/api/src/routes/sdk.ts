@@ -44,7 +44,7 @@ const identifySchema = z.object({
 
 // ─── SDK Routes ───────────────────────────────────────────────────────────────
 
-export default function sdkRoutes(fastify: FastifyInstance): void {
+export default async function sdkRoutes(fastify: FastifyInstance): Promise<void> {
   // ── GET /sdk.js — serve the JavaScript SDK file ───────────────────────────
   // In production this would be served from a CDN. The API serves it directly
   // for local dev and simple deployments.

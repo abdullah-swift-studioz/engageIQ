@@ -29,7 +29,7 @@ const callbackQuerySchema = z.object({
   timestamp: z.string().min(1),
 })
 
-function shopifyRoutes(fastify: FastifyInstance): void {
+async function shopifyRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/install', async (request, reply) => {
     const parsed = installQuerySchema.safeParse(request.query)
     if (!parsed.success) {

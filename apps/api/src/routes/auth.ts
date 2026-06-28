@@ -2,7 +2,7 @@ import { prisma } from '@engageiq/db'
 import type { FastifyInstance } from 'fastify'
 import { loginUser, refreshUserTokens } from '../services/auth.service.js'
 
-function authRoutes(fastify: FastifyInstance): void {
+async function authRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.post('/login', {
     config: {
       rateLimit: {
