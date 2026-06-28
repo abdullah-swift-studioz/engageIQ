@@ -16,6 +16,10 @@ import type { ScoringJob } from '@engageiq/shared'
 import { env } from '@engageiq/shared'
 import { createScoringWorker, registerScoringSchedulers } from './workers/scoring.worker.js'
 // lane:ml END
+// lane:campaigns START
+import type { CampaignSendJob } from '@engageiq/shared'
+import { createCampaignSendWorker } from './workers/campaign-send.worker.js'
+// lane:campaigns END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -27,6 +31,9 @@ const messageDispatchWorker = createMessageDispatchWorker()
 // lane:analytics START
 const analyticsWorker = createAnalyticsWorker()
 // lane:analytics END
+// lane:campaigns START
+const campaignSendWorker = createCampaignSendWorker()
+// lane:campaigns END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -106,6 +113,19 @@ analyticsWorker.on('error', (err: Error) => {
   console.error('[analytics-worker] worker error:', err)
 })
 // lane:analytics END
+// lane:campaigns START
+campaignSendWorker.on('completed', (job: Job<CampaignSendJob>) => {
+  console.info(`[campaign-send-worker] completed  job=${job.id} campaignId=${job.data.campaignId}`)
+})
+
+campaignSendWorker.on('failed', (job: Job<CampaignSendJob> | undefined, err: Error) => {
+  console.error(`[campaign-send-worker] failed    job=${job?.id} campaignId=${job?.data.campaignId} error=${err.message}`)
+})
+
+campaignSendWorker.on('error', (err: Error) => {
+  console.error('[campaign-send-worker] worker error:', err)
+})
+// lane:campaigns END
 
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
@@ -123,6 +143,9 @@ const shutdown = async (): Promise<void> => {
     // lane:ml START
     scoringWorker.close(),
     // lane:ml END
+    // lane:campaigns START
+    campaignSendWorker.close(),
+    // lane:campaigns END
   ])
   process.exit(0)
 }

@@ -27,6 +27,9 @@ import analyticsRoutes from './routes/analytics/index.js'
 // lane:ml START
 import recommendationsRoutes from './routes/recommendations/index.js'
 // lane:ml END
+// lane:campaigns START
+import campaignsRoutes from './routes/campaigns/index.js'
+// lane:campaigns END
 
 const app = Fastify({
   logger: {
@@ -90,6 +93,9 @@ await app.register(analyticsRoutes, { prefix: '/api/v1/analytics' })
 // lane:ml START
 await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
 // lane:ml END
+// lane:campaigns START
+await app.register(campaignsRoutes, { prefix: '/api/v1/campaigns' })
+// lane:campaigns END
 
 app.get('/health', () => ({
   status: 'ok',
