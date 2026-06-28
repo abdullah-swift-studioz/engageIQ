@@ -702,3 +702,19 @@ export interface DiscoveredSegment {
   customerIds: string[]
 }
 // lane:ml END
+// lane:campaigns START
+// ─── Campaign Engine (roadmap 6.1 — one-time blasts) ─────────────────────────
+//
+// The campaign-send queue already exists (`campaignSendQueue` in queues.ts). This
+// is its job payload. One job per campaign; the campaign-send worker fans out one
+// MessageDispatchJob per eligible recipient onto the frozen MESSAGE_DISPATCH queue
+// (Lane A's consumer), tagging campaignId + campaignRecipientId for attribution.
+// jobId is set to the campaignId at enqueue time so re-enqueue is deduped.
+export const CAMPAIGN_SEND = 'campaign-send' as const
+
+export interface CampaignSendJob {
+  type: 'send_campaign'
+  campaignId: string
+  merchantId: string
+}
+// lane:campaigns END

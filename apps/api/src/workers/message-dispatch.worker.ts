@@ -8,6 +8,12 @@
 //   5. adapter.send(payload)
 //   6. persist Message (SENT + wamid | FAILED + error). Retryable → throw (BullMQ
 //      retries); permanent → UnrecoverableError + a FAILED Message row.
+//
+// Campaign integration (Lane A ⇄ Lane B): when a job carries campaignRecipientId
+// (set only by the campaign-send worker), flip the originating CampaignRecipient to a
+// terminal state and stamp messageId — SENT on a delivered Message, FAILED on a
+// permanent failure, SKIPPED when the consent/stub-channel guard short-circuits the
+// send. Non-campaign sends (journeys, etc.) omit campaignRecipientId, so this no-ops.
 import { Worker, UnrecoverableError } from 'bullmq'
 import { prisma } from '@engageiq/db'
 import { messageDispatchQueue, redisConnection } from '@engageiq/queue'
@@ -22,14 +28,37 @@ interface JobContext {
   jobId?: string
 }
 
-// Persist a terminal FAILED Message row (audit trail for the message log UI).
+// Flip the originating CampaignRecipient (Lane B) to a terminal state and, for a
+// real send/failure, link the Message via messageId. No-op for non-campaign sends
+// where campaignRecipientId is absent. Tenant-scoped (id + merchantId) and idempotent
+// (a retried job re-applies the same terminal state).
+async function markRecipient(
+  data: MessageDispatchJob,
+  status: 'SENT' | 'FAILED' | 'SKIPPED',
+  messageId?: string,
+): Promise<void> {
+  if (!data.campaignRecipientId) return
+  const now = new Date()
+  await prisma.campaignRecipient.updateMany({
+    where: { id: data.campaignRecipientId, merchantId: data.merchantId },
+    data: {
+      status,
+      ...(messageId !== undefined && { messageId }),
+      ...(status === 'SENT' && { sentAt: now }),
+      ...(status === 'FAILED' && { failedAt: now }),
+    },
+  })
+}
+
+// Persist a terminal FAILED Message row (audit trail for the message log UI) and
+// return its id so the originating CampaignRecipient can link back to it.
 async function persistFailed(
   data: MessageDispatchJob,
   toPhone: string,
   errorTitle: string,
   errorCode?: string,
-): Promise<void> {
-  await prisma.message.create({
+): Promise<string> {
+  const message = await prisma.message.create({
     data: {
       merchantId: data.merchantId,
       customerId: data.customerId,
@@ -46,6 +75,7 @@ async function persistFailed(
       failedAt: new Date(),
     },
   })
+  return message.id
 }
 
 export async function processMessageDispatchJob(
@@ -57,11 +87,13 @@ export async function processMessageDispatchJob(
     where: { id: data.customerId, merchantId: data.merchantId },
   })
   if (!customer) {
+    await markRecipient(data, 'FAILED')
     throw new UnrecoverableError(`Customer ${data.customerId} not found for merchant ${data.merchantId}`)
   }
 
   // 2. Stub channels (SMS / Email / Push) are not active yet — skip cleanly, no row.
   if (data.channel !== 'WHATSAPP') {
+    await markRecipient(data, 'SKIPPED')
     console.info(
       JSON.stringify({ level: 'info', msg: '[message-dispatch] stub channel skipped', channel: data.channel, merchantId: data.merchantId }),
     )
@@ -71,6 +103,7 @@ export async function processMessageDispatchJob(
   // 2b. Consent gate — never send to an opted-out customer. No Message row (a send
   // that never happened is not part of the message log); the inbound opt-out is.
   if (!customer.isSubscribedWhatsapp) {
+    await markRecipient(data, 'SKIPPED')
     console.info(
       JSON.stringify({ level: 'info', msg: '[message-dispatch] consent skip', customerId: customer.id, merchantId: data.merchantId }),
     )
@@ -79,11 +112,13 @@ export async function processMessageDispatchJob(
 
   const toPhone = customer.phone
   if (!toPhone) {
-    await persistFailed(data, '', 'Customer has no phone number')
+    const messageId = await persistFailed(data, '', 'Customer has no phone number')
+    await markRecipient(data, 'FAILED', messageId)
     throw new UnrecoverableError(`Customer ${customer.id} has no phone number`)
   }
 
   // 3. Per-merchant rate limit — over cap re-enqueues the same job with jitter.
+  //    Not terminal: the recipient stays PENDING until the re-enqueued job resolves.
   const allowed = await checkRateLimit(data.merchantId)
   if (!allowed) {
     await messageDispatchQueue.add(MESSAGE_DISPATCH, data, {
@@ -99,12 +134,14 @@ export async function processMessageDispatchJob(
       where: { id: data.templateId, merchantId: data.merchantId },
     })
     if (!template) {
-      await persistFailed(data, toPhone, 'Template not found')
+      const messageId = await persistFailed(data, toPhone, 'Template not found')
+      await markRecipient(data, 'FAILED', messageId)
       throw new UnrecoverableError(`Template ${data.templateId} not found`)
     }
     // Business-initiated sends require an APPROVED template.
     if (template.status !== 'APPROVED') {
-      await persistFailed(data, toPhone, `Template not approved (status ${template.status})`)
+      const messageId = await persistFailed(data, toPhone, `Template not approved (status ${template.status})`)
+      await markRecipient(data, 'FAILED', messageId)
       throw new UnrecoverableError(`Template ${template.id} not approved`)
     }
 
@@ -113,7 +150,8 @@ export async function processMessageDispatchJob(
       customer as unknown as Record<string, unknown>,
     )
     if (!result.ok) {
-      await persistFailed(data, toPhone, `Empty template variable {{${result.missingIndex}}}`)
+      const messageId = await persistFailed(data, toPhone, `Empty template variable {{${result.missingIndex}}}`)
+      await markRecipient(data, 'FAILED', messageId)
       throw new UnrecoverableError(`Empty template variable {{${result.missingIndex}}}`)
     }
 
@@ -132,14 +170,15 @@ export async function processMessageDispatchJob(
   // 5. Send via the resolved adapter.
   const adapter = getAdapter('WHATSAPP')
   if (!adapter) {
-    await persistFailed(data, toPhone, 'No adapter for channel WHATSAPP')
+    const messageId = await persistFailed(data, toPhone, 'No adapter for channel WHATSAPP')
+    await markRecipient(data, 'FAILED', messageId)
     throw new UnrecoverableError('No adapter for channel WHATSAPP')
   }
   const result = await adapter.send(payload)
 
-  // 6. Persist the outcome.
+  // 6. Persist the outcome, then flip the originating CampaignRecipient (when present).
   if (result.ok) {
-    await prisma.message.create({
+    const message = await prisma.message.create({
       data: {
         merchantId: data.merchantId,
         customerId: data.customerId,
@@ -155,17 +194,20 @@ export async function processMessageDispatchJob(
         sentAt: new Date(),
       },
     })
+    await markRecipient(data, 'SENT', message.id)
     return
   }
 
   // Retryable (5xx / 429 / network): throw WITHOUT a FAILED row so BullMQ retries
-  // and we don't accumulate duplicate FAILED rows across attempts.
+  // and we don't accumulate duplicate FAILED rows across attempts. Recipient stays
+  // PENDING until a terminal attempt resolves.
   if (result.retryable) {
     throw new Error(result.errorTitle)
   }
 
   // Permanent failure: record FAILED and stop retrying.
-  await persistFailed(data, toPhone, result.errorTitle, result.errorCode)
+  const messageId = await persistFailed(data, toPhone, result.errorTitle, result.errorCode)
+  await markRecipient(data, 'FAILED', messageId)
   throw new UnrecoverableError(result.errorTitle)
 }
 

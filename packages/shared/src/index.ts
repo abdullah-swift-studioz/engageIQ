@@ -38,3 +38,7 @@ export type { Permission } from './roles.js'
 export { SCORING } from './types.js'
 export type { ScoringTask, ScoringJob, DiscoveredSegment } from './types.js'
 // lane:ml END
+// lane:campaigns START
+export { CAMPAIGN_SEND } from './types.js'
+export type { CampaignSendJob } from './types.js'
+// lane:campaigns END
