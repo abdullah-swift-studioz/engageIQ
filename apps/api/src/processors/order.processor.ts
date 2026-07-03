@@ -6,6 +6,7 @@ import { processCustomerUpsert } from './customer.processor.js'
 import { recalculateCodProfile } from '../services/profile-sync.service.js'
 import { checkJourneyEntry } from '../services/journey-entry.service.js'
 import { checkJourneyExit } from '../services/journey-exit.service.js'
+import { scoreFakeOrderRealtime } from '../services/fake-order-gate.service.js'
 
 /**
  * Recompute totalOrders, totalSpent, avgOrderValue, firstOrderAt, lastOrderAt,
@@ -72,6 +73,10 @@ export async function processOrderUpsert(
   const tags = parseTags(payload.tags)
 
   const lineItems = payload.line_items.map((li: ShopifyLineItem) => ({
+    // line_item_id is the Shopify order-line id; stored so refund webhooks can map a
+    // refund_line_item (which only carries line_item_id) back to its product_id when
+    // populating Order.returnsData (see refund.processor.ts / Product.returnRate).
+    line_item_id: li.id != null ? String(li.id) : null,
     product_id: li.product_id ? String(li.product_id) : null,
     variant_id: li.variant_id ? String(li.variant_id) : null,
     title: li.title,
@@ -173,5 +178,17 @@ export async function processOrder(
     checkJourneyExit(customerId, merchantId, 'order_placed').catch(
       (err: unknown) => console.error('[journey-exit] order_placed hook failed', err),
     )
+  }
+
+  // Real-time fake-order scoring + gating (7.3). Runs after aggregates are recalculated so
+  // the customer features (codOrderCount, avgOrderValue) are fresh. Awaited so the gate is
+  // applied inline, but never allowed to throw — an ML-service outage must not drop the
+  // order; the nightly batch scoring worker re-scores anything left unscored.
+  if (isCod) {
+    try {
+      await scoreFakeOrderRealtime(merchantId, String(payload.id))
+    } catch (err) {
+      console.error('[fake-order-gate] realtime scoring failed', err)
+    }
   }
 }

@@ -9,6 +9,9 @@ import type { FastifyInstance } from 'fastify'
 import { prisma } from '@engageiq/db'
 import { env } from '@engageiq/shared'
 import type { MessageStatus } from '@prisma/client'
+// lane:ai-wiring START
+import type { CampaignRecipientStatus } from '@prisma/client'
+// lane:ai-wiring END
 
 // ─── Pure helpers (exported for unit tests) ──────────────────────────────────
 
@@ -153,8 +156,56 @@ async function processStatuses(statuses: Array<Record<string, unknown>>): Promis
     }
 
     await prisma.message.update({ where: { id: message.id }, data: update })
+
+    // lane:ai-wiring START — propagate DELIVERED/READ (and post-send FAILED) to the campaign
+    // recipient. Kept separate from inbound routing (lane:wa-conversation). update.status is
+    // set only on a forward advance, so this fires exactly on the SENT→DELIVERED→READ steps.
+    await propagateCampaignRecipient(message.id, update.status as MessageStatus | undefined)
+    // lane:ai-wiring END
   }
 }
+
+// lane:ai-wiring START — campaign-recipient delivery propagation
+const RECIPIENT_RANK: Record<string, number> = { PENDING: 0, SENT: 1, DELIVERED: 2, READ: 3 }
+
+/**
+ * Advance the CampaignRecipient linked to a Message when its WhatsApp delivery status
+ * moves to DELIVERED/READ (or a post-send FAILED). The message-dispatch worker only flips
+ * recipients PENDING→SENT; this closes the loop so campaign analytics see delivered/read
+ * counts. Monotonic (never regresses) and terminal-safe (leaves FAILED/SKIPPED untouched).
+ * Exported for unit tests.
+ */
+export async function propagateCampaignRecipient(
+  messageId: string,
+  messageStatus: MessageStatus | undefined,
+): Promise<void> {
+  if (messageStatus !== 'DELIVERED' && messageStatus !== 'READ' && messageStatus !== 'FAILED') return
+
+  const recipient = await prisma.campaignRecipient.findUnique({
+    where: { messageId },
+    select: { id: true, status: true },
+  })
+  if (!recipient) return // message is not part of a campaign send
+  if (recipient.status === 'FAILED' || recipient.status === 'SKIPPED') return // terminal
+
+  if (messageStatus === 'FAILED') {
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: 'FAILED', failedAt: new Date() },
+    })
+    return
+  }
+
+  // Only advance forward (SENT → DELIVERED → READ); never regress.
+  const next = messageStatus as 'DELIVERED' | 'READ'
+  if ((RECIPIENT_RANK[next] ?? 0) > (RECIPIENT_RANK[recipient.status] ?? 0)) {
+    await prisma.campaignRecipient.update({
+      where: { id: recipient.id },
+      data: { status: next as CampaignRecipientStatus },
+    })
+  }
+}
+// lane:ai-wiring END
 
 async function processInbound(messages: Array<Record<string, unknown>>): Promise<void> {
   for (const m of messages) {

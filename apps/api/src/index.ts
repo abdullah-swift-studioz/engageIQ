@@ -30,6 +30,9 @@ import recommendationsRoutes from './routes/recommendations/index.js'
 // lane:campaigns START
 import campaignsRoutes from './routes/campaigns/index.js'
 // lane:campaigns END
+// lane:ai-wiring START
+import clustersRoutes from './routes/clusters/index.js'
+// lane:ai-wiring END
 
 const app = Fastify({
   logger: {
@@ -96,6 +99,9 @@ await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
 // lane:campaigns START
 await app.register(campaignsRoutes, { prefix: '/api/v1/campaigns' })
 // lane:campaigns END
+// lane:ai-wiring START
+await app.register(clustersRoutes, { prefix: '/api/v1/clusters' })
+// lane:ai-wiring END
 
 app.get('/health', () => ({
   status: 'ok',

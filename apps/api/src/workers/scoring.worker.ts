@@ -22,8 +22,9 @@ import { Prisma } from '@prisma/client'
 import type { Customer, CodOrder, Order, RfmSegment, ChurnRiskLabel } from '@prisma/client'
 import { redisConnection, scoringQueue } from '@engageiq/queue'
 import { prisma } from '@engageiq/db'
-import { env } from '@engageiq/shared'
+import { env, CHURN_SCORE } from '@engageiq/shared'
 import type { ScoringJob, ScoringTask } from '@engageiq/shared'
+import { checkJourneyEntry } from '../services/journey-entry.service.js'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -309,12 +310,45 @@ export async function runRfm(merchantId: string, deps: ScoringDeps): Promise<num
   return scores.length
 }
 
+/**
+ * Merchant churn threshold: the score above which a customer is "at risk" and should
+ * enter churn-triggered journeys. Overridable per-merchant via
+ * MerchantSettings.extra.churnThreshold (0–100); defaults to the MEDIUM band's inclusive
+ * upper bound, i.e. a score strictly above it lands in HIGH/CRITICAL. Pure + exported for tests.
+ */
+export function resolveChurnThreshold(settingsExtra: unknown): number {
+  const e = (settingsExtra ?? {}) as Record<string, unknown>
+  const v = e.churnThreshold
+  return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 100
+    ? v
+    : CHURN_SCORE.BANDS.MEDIUM
+}
+
+/**
+ * Customers whose churn score crossed the threshold on this run: previously at/below it
+ * (or never scored) and now strictly above it. Only the transition fires — a customer who
+ * was already above the threshold does not re-fire every run. Pure + exported for tests.
+ */
+export function churnCrossings(
+  previousById: Map<string, number | null>,
+  scores: ChurnScoreOut[],
+  threshold: number,
+): ChurnScoreOut[] {
+  return scores.filter((s) => {
+    const prev = previousById.get(s.id) ?? null
+    const wasAtOrBelow = prev == null || prev <= threshold
+    return wasAtOrBelow && s.churnScore > threshold
+  })
+}
+
 export async function runChurn(merchantId: string, deps: ScoringDeps): Promise<number> {
   const now = deps.now ?? new Date()
   const startedAt = Date.now()
   const customers = await prisma.customer.findMany({ where: { merchantId, mergedIntoId: null } })
   const inputs = buildChurnInputs(customers, now)
   if (inputs.length === 0) return 0
+  // Capture pre-update scores so we can detect threshold crossings after writing.
+  const previousById = new Map(customers.map((c) => [c.id, c.churnScore]))
   const scores = await deps.ml.churn(inputs)
   const scoredAt = new Date()
   await chunked(scores, 50, async (chunk) => {
@@ -332,6 +366,28 @@ export async function runChurn(merchantId: string, deps: ScoringDeps): Promise<n
     )
   })
   await recordRun(merchantId, 'churn', scores.length, startedAt)
+
+  // Fire the churn journey trigger for customers that crossed the merchant threshold.
+  const settings = await prisma.merchantSettings.findUnique({
+    where: { merchantId },
+    select: { extra: true },
+  })
+  const threshold = resolveChurnThreshold(settings?.extra)
+  const crossed = churnCrossings(previousById, scores, threshold)
+  for (const s of crossed) {
+    // Fire-and-forget: journey enrollment must not block or fail the scoring run. The
+    // journey's re-entry rule already prevents duplicate active enrollments.
+    checkJourneyEntry(s.id, merchantId, 'churn_risk', {
+      churnScore: s.churnScore,
+      churnRiskLabel: s.churnRiskLabel,
+    }).catch((err: unknown) =>
+      console.error(`[churn-trigger] journey entry failed customer=${s.id}`, err),
+    )
+  }
+  if (crossed.length > 0) {
+    console.info(`[scoring-worker] churn threshold crossed by ${crossed.length} customer(s)`)
+  }
+
   return scores.length
 }
 
@@ -500,8 +556,12 @@ export async function runSegmentDiscovery(merchantId: string, deps: ScoringDeps)
   if (inputs.length < 3) return 0
 
   const { clusters, silhouette } = await deps.ml.discover({ customers: inputs, maxClusters: 6 })
-  // Compact summary for audit (omit full customerId arrays to keep the row small).
-  const summary = clusters.map((c) => ({
+  // Store each cluster with a stable index + its customerIds so the clusters UI can
+  // one-click promote a snapshot into a real (static) Segment. customerIds is included by
+  // design here (unlike a purely compact audit summary) — promotion needs the membership,
+  // and the id arrays are bounded by the merchant's scored buyer count.
+  const summary = clusters.map((c, i) => ({
+    index: i,
     label: c.label,
     size: c.size,
     avgLtv: c.avgLtv,
@@ -510,6 +570,7 @@ export async function runSegmentDiscovery(merchantId: string, deps: ScoringDeps)
     avgMonetary: c.avgMonetary,
     description: c.description,
     recommendedAction: c.recommendedAction,
+    customerIds: c.customerIds,
   }))
   await recordRun(merchantId, 'segment-discovery', inputs.length, startedAt, {
     silhouette,
