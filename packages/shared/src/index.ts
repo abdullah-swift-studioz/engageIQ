@@ -42,3 +42,12 @@ export type { ScoringTask, ScoringJob, DiscoveredSegment } from './types.js'
 export { CAMPAIGN_SEND } from './types.js'
 export type { CampaignSendJob } from './types.js'
 // lane:campaigns END
+// freeze-v2 START
+export { COD_VERIFICATION, PUSH_SEND, COURIER_POLL, WEBHOOK_DELIVERY } from './types.js'
+export type {
+  VerificationJob, VerificationChannelName,
+  PushSendJob,
+  CourierPollJob, CourierName,
+  WebhookDeliveryJob,
+} from './types.js'
+// freeze-v2 END
