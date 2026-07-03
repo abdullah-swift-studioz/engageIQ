@@ -12,5 +12,8 @@ export {
   // lane:ml START
   scoringQueue,
   // lane:ml END
+  // lane:courier START
+  courierPollQueue,
+  // lane:courier END
 } from './queues.js'
 export type { QueueName } from './queues.js'

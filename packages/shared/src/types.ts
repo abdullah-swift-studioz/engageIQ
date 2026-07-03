@@ -778,3 +778,19 @@ export interface WebhookDeliveryJob {
   deliveryId?: string
 }
 // freeze-v2 END
+
+// lane:courier START
+// ─── Courier poll queue jobs (roadmap 8.1 / guide 9.2) ───────────────────────
+// Both job shapes ride the single `courier-poll` queue (COURIER_POLL, frozen in freeze-v2).
+// CourierPollJob (freeze-v2) polls ONE shipment. CourierSweepJob fans a merchant's active
+// (non-terminal) shipments out into individual poll jobs — enqueued by the repeatable
+// scheduler and the manual POST /couriers/sync route. The worker handles the CourierJob union.
+export interface CourierSweepJob {
+  type: 'sweep'
+  // Omit merchantId to sweep every merchant (the scheduled global run). Set it for a
+  // single-merchant sweep (the manual sync route).
+  merchantId?: string
+}
+
+export type CourierJob = CourierPollJob | CourierSweepJob
+// lane:courier END

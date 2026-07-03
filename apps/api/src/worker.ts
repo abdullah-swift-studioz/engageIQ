@@ -20,6 +20,11 @@ import { createScoringWorker, registerScoringSchedulers } from './workers/scorin
 import type { CampaignSendJob } from '@engageiq/shared'
 import { createCampaignSendWorker } from './workers/campaign-send.worker.js'
 // lane:campaigns END
+// lane:courier START
+import type { CourierJob } from '@engageiq/shared'
+import { env as courierEnv } from '@engageiq/shared'
+import { createCourierPollWorker, registerCourierPollScheduler } from './workers/courier-poll.worker.js'
+// lane:courier END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -34,6 +39,9 @@ const analyticsWorker = createAnalyticsWorker()
 // lane:campaigns START
 const campaignSendWorker = createCampaignSendWorker()
 // lane:campaigns END
+// lane:courier START
+const courierPollWorker = createCourierPollWorker()
+// lane:courier END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -126,6 +134,25 @@ campaignSendWorker.on('error', (err: Error) => {
   console.error('[campaign-send-worker] worker error:', err)
 })
 // lane:campaigns END
+// lane:courier START
+courierPollWorker.on('completed', (job: Job<CourierJob>) => {
+  console.info(`[courier-poll-worker] completed  job=${job.id} type=${job.data.type}`)
+})
+
+courierPollWorker.on('failed', (job: Job<CourierJob> | undefined, err: Error) => {
+  console.error(`[courier-poll-worker] failed    job=${job?.id} type=${job?.data.type} error=${err.message}`)
+})
+
+courierPollWorker.on('error', (err: Error) => {
+  console.error('[courier-poll-worker] worker error:', err)
+})
+
+if (courierEnv.COURIER_POLL_ENABLED) {
+  registerCourierPollScheduler()
+    .then(() => console.info('[courier-poll-worker] scheduler registered (repeatable sweep)'))
+    .catch((err: Error) => console.error('[courier-poll-worker] scheduler registration failed:', err.message))
+}
+// lane:courier END
 
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
@@ -146,6 +173,9 @@ const shutdown = async (): Promise<void> => {
     // lane:campaigns START
     campaignSendWorker.close(),
     // lane:campaigns END
+    // lane:courier START
+    courierPollWorker.close(),
+    // lane:courier END
   ])
   process.exit(0)
 }

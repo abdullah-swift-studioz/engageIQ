@@ -52,6 +52,14 @@ export const scoringQueue = new Queue('scoring', {
   defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
 })
 // lane:ml END
+// lane:courier START
+// Courier status polling: a repeatable sweep enqueues one poll job per active shipment.
+// Polls hit external courier APIs; keep the default retry/backoff for transient failures.
+export const courierPollQueue = new Queue('courier-poll', {
+  connection: redisConnection,
+  defaultJobOptions,
+})
+// lane:courier END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -65,4 +73,7 @@ export type QueueName =
 // lane:channels END
   // lane:ml START
   | 'scoring'
-// lane:ml END
+  // lane:ml END
+  // lane:courier START
+  | 'courier-poll'
+// lane:courier END

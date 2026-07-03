@@ -51,3 +51,6 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:courier START
+export type { CourierSweepJob, CourierJob } from './types.js'
+// lane:courier END

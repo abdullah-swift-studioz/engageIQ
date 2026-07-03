@@ -68,6 +68,19 @@ const schema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   // lane:ml END
+  // lane:courier START
+  // AES-256-GCM key that encrypts MerchantIntegration.credentials at rest (courier API keys).
+  // 32 bytes, provided as 64 hex chars OR base64. Optional so the app boots credential-free:
+  // when absent, courier adapters cannot decrypt stored creds and no-op with a clear status.
+  COURIER_CREDENTIALS_KEY: z.string().optional(),
+  // Cron for the repeatable courier status sweep (enqueues a poll per active shipment).
+  COURIER_POLL_CRON: z.string().default('*/30 * * * *'),
+  // Set true to auto-register the repeatable courier sweep scheduler on worker boot.
+  COURIER_POLL_ENABLED: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((v) => v === 'true'),
+  // lane:courier END
 })
 
 const result = schema.safeParse(process.env)
