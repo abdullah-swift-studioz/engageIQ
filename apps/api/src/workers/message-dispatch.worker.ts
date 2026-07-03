@@ -91,7 +91,81 @@ export async function processMessageDispatchJob(
     throw new UnrecoverableError(`Customer ${data.customerId} not found for merchant ${data.merchantId}`)
   }
 
-  // 2. Stub channels (SMS / Email / Push) are not active yet — skip cleanly, no row.
+  // lane:sms START — real SMS send path (mirrors the WhatsApp flow below: consent gate →
+  // phone → per-merchant rate limit → adapter.send with Twilio↔PK failover → persist
+  // Message + flip CampaignRecipient). Handled here and returns, so the stub-channel skip
+  // guard beneath only catches EMAIL / PUSH. SMS templating is free-form (no WhatsApp
+  // template table applies) — the rendered text arrives in data.content.body.
+  if (data.channel === 'SMS') {
+    // Consent gate — never SMS an opted-out customer (STOP opt-out flips isSubscribedSms).
+    if (!customer.isSubscribedSms) {
+      await markRecipient(data, 'SKIPPED')
+      console.info(
+        JSON.stringify({ level: 'info', msg: '[message-dispatch] sms consent skip', customerId: customer.id, merchantId: data.merchantId }),
+      )
+      return
+    }
+
+    const smsTo = customer.phone
+    if (!smsTo) {
+      const messageId = await persistFailed(data, '', 'Customer has no phone number')
+      await markRecipient(data, 'FAILED', messageId)
+      throw new UnrecoverableError(`Customer ${customer.id} has no phone number`)
+    }
+
+    // Per-merchant rate limit — over cap re-enqueues the same job with jitter (not terminal).
+    const smsAllowed = await checkRateLimit(data.merchantId)
+    if (!smsAllowed) {
+      await messageDispatchQueue.add(MESSAGE_DISPATCH, data, {
+        delay: jitteredReEnqueueDelay(ctx.jobId),
+      })
+      return
+    }
+
+    const smsAdapterInstance = getAdapter('SMS')
+    if (!smsAdapterInstance) {
+      const messageId = await persistFailed(data, smsTo, 'No adapter for channel SMS')
+      await markRecipient(data, 'FAILED', messageId)
+      throw new UnrecoverableError('No adapter for channel SMS')
+    }
+
+    const smsResult = await smsAdapterInstance.send({ channel: 'SMS', toPhone: smsTo, body: data.content.body })
+
+    if (smsResult.ok) {
+      const message = await prisma.message.create({
+        data: {
+          merchantId: data.merchantId,
+          customerId: data.customerId,
+          channel: 'SMS',
+          direction: 'OUTBOUND',
+          // SMS is free-form: no WhatsApp-template FK is stamped (templateId → WhatsAppTemplate).
+          providerMessageId: smsResult.providerMessageId,
+          status: 'SENT',
+          body: data.content.body,
+          toPhone: smsTo,
+          ...(data.journeyEnrollmentId !== undefined && { journeyEnrollmentId: data.journeyEnrollmentId }),
+          ...(data.campaignId !== undefined && { campaignId: data.campaignId }),
+          sentAt: new Date(),
+        },
+      })
+      await markRecipient(data, 'SENT', message.id)
+      return
+    }
+
+    // Retryable (network / 429 / 5xx across all providers): throw WITHOUT a FAILED row so
+    // BullMQ retries and we don't accumulate duplicate FAILED rows across attempts.
+    if (smsResult.retryable) {
+      throw new Error(smsResult.errorTitle)
+    }
+
+    // Permanent failure (rejected by every configured provider): record FAILED and stop.
+    const messageId = await persistFailed(data, smsTo, smsResult.errorTitle, smsResult.errorCode)
+    await markRecipient(data, 'FAILED', messageId)
+    throw new UnrecoverableError(smsResult.errorTitle)
+  }
+  // lane:sms END
+
+  // 2. Stub channels (Email / Push) are not active yet — skip cleanly, no row.
   if (data.channel !== 'WHATSAPP') {
     await markRecipient(data, 'SKIPPED')
     console.info(
