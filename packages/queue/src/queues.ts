@@ -52,6 +52,15 @@ export const scoringQueue = new Queue('scoring', {
   defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
 })
 // lane:ml END
+// lane:public-api START
+// Outbound-webhook delivery. Merchant endpoints can be flaky, so allow more attempts
+// with exponential backoff. The worker also records every attempt on the WebhookDelivery
+// row, so BullMQ retries and the delivery log stay consistent.
+export const webhookDeliveryQueue = new Queue('webhook-delivery', {
+  connection: redisConnection,
+  defaultJobOptions: { ...defaultJobOptions, attempts: 6, backoff: { type: 'exponential', delay: 5000 } },
+})
+// lane:public-api END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -65,4 +74,7 @@ export type QueueName =
 // lane:channels END
   // lane:ml START
   | 'scoring'
-// lane:ml END
+  // lane:ml END
+  // lane:public-api START
+  | 'webhook-delivery'
+// lane:public-api END

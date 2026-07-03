@@ -4,6 +4,10 @@ import { redisConnection } from '@engageiq/queue'
 import { prisma } from '@engageiq/db'
 import { MESSAGE_DISPATCH } from '@engageiq/shared'
 import type { CampaignSendJob, MessageDispatchJob, ChannelName } from '@engageiq/shared'
+// lane:public-api START
+import { emitOutboundEvent } from '../services/webhooks-outbound/emit.js'
+import { OUTBOUND_EVENTS } from '../services/webhooks-outbound/events.js'
+// lane:public-api END
 
 // ─── Dispatch seam (Lane A <-> Lane B contract) ──────────────────────────────
 //
@@ -157,6 +161,15 @@ export async function processCampaignSendJob(
     where: { id: campaignId },
     data: { status: 'SENT', sentAt: new Date(), recipientCount },
   })
+
+  // lane:public-api START — outbound webhook: campaign.completed
+  void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.CAMPAIGN_COMPLETED, {
+    campaignId,
+    campaignName: campaign.name,
+    channel: campaign.channel,
+    recipientCount,
+  })
+  // lane:public-api END
 
   return { campaignId, recipientCount, dispatched: pending.length, skipped: false }
 }

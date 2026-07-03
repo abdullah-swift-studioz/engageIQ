@@ -12,5 +12,8 @@ export {
   // lane:ml START
   scoringQueue,
   // lane:ml END
+  // lane:public-api START
+  webhookDeliveryQueue,
+  // lane:public-api END
 } from './queues.js'
 export type { QueueName } from './queues.js'

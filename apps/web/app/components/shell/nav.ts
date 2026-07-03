@@ -87,6 +87,8 @@ export const NAV: NavSection[] = [
     title: 'Configure',
     items: [
       { label: 'On-Site', to: '/on-site', icon: AppWindow, soon: true },
+      // lane:public-api — API keys + outbound webhooks (route lives at /settings/api)
+      { label: 'API & Webhooks', to: '/settings/api', icon: Workflow },
       { label: 'Settings & RBAC', to: '/settings', icon: Sliders, soon: true },
     ],
   },

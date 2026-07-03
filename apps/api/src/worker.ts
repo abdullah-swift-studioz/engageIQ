@@ -20,6 +20,10 @@ import { createScoringWorker, registerScoringSchedulers } from './workers/scorin
 import type { CampaignSendJob } from '@engageiq/shared'
 import { createCampaignSendWorker } from './workers/campaign-send.worker.js'
 // lane:campaigns END
+// lane:public-api START
+import type { WebhookDeliveryJob } from '@engageiq/shared'
+import { createWebhookDeliveryWorker } from './workers/webhook-delivery.worker.js'
+// lane:public-api END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -146,6 +150,9 @@ const shutdown = async (): Promise<void> => {
     // lane:campaigns START
     campaignSendWorker.close(),
     // lane:campaigns END
+    // lane:public-api START
+    webhookDeliveryWorker.close(),
+    // lane:public-api END
   ])
   process.exit(0)
 }
@@ -176,3 +183,19 @@ if (env.ML_SCHEDULER_ENABLED) {
     .catch((err: Error) => console.error('[scoring-worker] scheduler registration failed:', err.message))
 }
 // lane:ml END
+
+// lane:public-api START
+const webhookDeliveryWorker = createWebhookDeliveryWorker()
+
+webhookDeliveryWorker.on('completed', (job: Job<WebhookDeliveryJob>) => {
+  console.info(`[webhook-delivery-worker] completed  job=${job.id} event=${job.data.event}`)
+})
+
+webhookDeliveryWorker.on('failed', (job: Job<WebhookDeliveryJob> | undefined, err: Error) => {
+  console.error(`[webhook-delivery-worker] failed    job=${job?.id} event=${job?.data.event} error=${err.message}`)
+})
+
+webhookDeliveryWorker.on('error', (err: Error) => {
+  console.error('[webhook-delivery-worker] worker error:', err)
+})
+// lane:public-api END
