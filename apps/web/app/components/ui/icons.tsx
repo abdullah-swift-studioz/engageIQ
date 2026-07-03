@@ -263,3 +263,14 @@ export const Sliders = (p: IconProps) => (
     <line x1="16" x2="16" y1="18" y2="22" />
   </Svg>
 )
+
+/* ---- lane:copywriter ------------------------------------------------- */
+
+// AI copywriter "Generate with AI" affordance.
+export const Sparkles = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.94 6.06 9 3l-.94 3.06L5 7l3.06.94L9 11l.94-3.06L13 7z" />
+    <path d="m18 9-.6 1.9L15.5 11.5l1.9.6L18 14l.6-1.9 1.9-.6-1.9-.6z" />
+    <path d="m18 3-.4 1.3-1.3.4 1.3.4.4 1.3.4-1.3 1.3-.4-1.3-.4z" />
+  </Svg>
+)

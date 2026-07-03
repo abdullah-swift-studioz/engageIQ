@@ -778,3 +778,77 @@ export interface WebhookDeliveryJob {
   deliveryId?: string
 }
 // freeze-v2 END
+
+// lane:copywriter START
+// AI Copywriter (roadmap 7.4 / feature-guide §8.3): generate marketing copy variants via the
+// Anthropic Claude API for email subject lines, WhatsApp text, and SMS — given goal / segment /
+// offer / tone / language (English + Urdu). Plus a heuristic subject-line open-rate predictor.
+// These are HTTP request/response DTOs (synchronous endpoint, no queue). String-literal unions
+// only — @engageiq/shared stays a dependency-free leaf.
+
+export type CopyPurpose = 'email_subject' | 'whatsapp_body' | 'sms_copy'
+export type CopyTone = 'formal' | 'casual' | 'urgent' | 'friendly'
+export type CopyLanguage = 'en' | 'ur'
+
+// The context a merchant provides in the "Generate with AI" panel.
+export interface AiCopyContext {
+  goal: string // e.g. "cart recovery", "win-back", "promotion"
+  segment?: string // target segment name/description, e.g. "VIP customers", "At-Risk"
+  offer?: string // optional offer detail, e.g. "15% off, code SAVE15"
+  tone: CopyTone
+  language: CopyLanguage
+  brandVoice?: string // optional merchant brand-voice note
+  productName?: string // optional product/store name to reference
+}
+
+export interface AiGenerateRequestDto {
+  purpose: CopyPurpose
+  channel?: ChannelName // target channel if applicable (email_subject → EMAIL, etc.)
+  context: AiCopyContext
+  count?: number // number of variants to produce (default 3, max 5)
+}
+
+export interface AiCopyVariant {
+  text: string // the generated copy
+  rationale?: string // one-line reason this variant fits the goal/tone (model-provided)
+}
+
+export interface AiGenerationUsage {
+  promptTokens: number
+  completionTokens: number
+  costUsd: number
+}
+
+export interface AiGenerateResultDto {
+  generationId: string // AiGeneration row id (audit + cost trail)
+  purpose: CopyPurpose
+  language: CopyLanguage
+  model: string
+  variants: AiCopyVariant[]
+  usage: AiGenerationUsage
+}
+
+// Subject-line open-rate predictor: heuristic blend of the merchant's historical email
+// open rate and subject-line features. Transparent (not ML) and self-contained.
+export interface SubjectPredictRequestDto {
+  subject: string
+  segment?: string
+}
+
+export type SubjectFactorImpact = 'positive' | 'negative' | 'neutral'
+
+export interface SubjectPredictFactor {
+  label: string
+  impact: SubjectFactorImpact
+  detail: string
+}
+
+export interface SubjectPredictResultDto {
+  subject: string
+  predictedOpenRate: number // 0..1
+  confidence: 'low' | 'medium' | 'high'
+  merchantBaselineOpenRate: number | null // 0..1, null when no email history
+  sampleSize: number // # of historical email campaigns informing the baseline
+  factors: SubjectPredictFactor[]
+}
+// lane:copywriter END

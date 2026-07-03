@@ -68,6 +68,16 @@ const schema = z.object({
     .default('true')
     .transform((v) => v === 'true'),
   // lane:ml END
+
+  // lane:copywriter START
+  // Anthropic model id for the AI copywriter (roadmap 7.4). Defaults to the most capable Claude
+  // model; override to a cheaper tier per merchant/cost tuning. Never hardcode the id in code.
+  ANTHROPIC_MODEL: z.string().default('claude-opus-4-8'),
+  // Max output tokens per copy generation (short marketing copy — kept small for latency/cost).
+  ANTHROPIC_COPYWRITER_MAX_TOKENS: z.coerce.number().int().positive().default(1024),
+  // Reasoning effort for copy generation: low is ideal for short copy (fast + cheap).
+  ANTHROPIC_COPYWRITER_EFFORT: z.enum(['low', 'medium', 'high']).default('low'),
+  // lane:copywriter END
 })
 
 const result = schema.safeParse(process.env)
