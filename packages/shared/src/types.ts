@@ -778,3 +778,81 @@ export interface WebhookDeliveryJob {
   deliveryId?: string
 }
 // freeze-v2 END
+
+// lane:rbac START
+// ── RBAC + Agency accounts (roadmap 8.3 / guide §9.4) ────────────────────────
+
+// Header an agency user sends to act on one of their child (client) merchants.
+// The global acting-merchant preHandler verifies access and swaps the effective
+// tenant (request.user.merchantId) to this value for the duration of the request.
+export const ACTING_MERCHANT_HEADER = 'x-acting-merchant-id' as const
+
+// One merchant an agency user can operate on ("switch into") or report across.
+export interface AccessibleMerchant {
+  id: string
+  name: string
+  shopifyDomain: string | null
+  isActive: boolean
+  // true when this is the agency user's own home merchant (the agency container itself)
+  isHome: boolean
+}
+
+// The resolved agency context returned to the dashboard so the switcher can render.
+export interface AgencyContext {
+  isAgency: boolean
+  homeMerchantId: string
+  activeMerchantId: string
+  accessibleMerchants: AccessibleMerchant[]
+}
+
+// A dashboard user row for the Settings → Team screen.
+export interface TeamMember {
+  id: string
+  email: string
+  firstName: string
+  lastName: string
+  role: Role
+  isActive: boolean
+  lastLoginAt: string | null
+  createdAt: string
+}
+
+export interface CreateTeamMemberInput {
+  email: string
+  firstName: string
+  lastName: string
+  role: Role
+  password: string
+}
+
+export interface UpdateTeamMemberInput {
+  role?: Role
+  isActive?: boolean
+  firstName?: string
+  lastName?: string
+}
+
+// One agency member ⇄ child-merchant assignment (which clients a member may access).
+export interface AgencyAssignmentView {
+  id: string
+  userId: string
+  childMerchantId: string
+  childMerchantName: string
+  createdAt: string
+}
+
+// A single client's headline numbers in the agency cross-client report.
+export interface AgencyClientReportRow {
+  merchantId: string
+  merchantName: string
+  customerCount: number
+  totalRevenue: string
+  orderCount: number
+}
+
+export interface AgencyClientReport {
+  generatedAt: string
+  clientCount: number
+  rows: AgencyClientReportRow[]
+}
+// lane:rbac END

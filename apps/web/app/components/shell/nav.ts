@@ -87,7 +87,7 @@ export const NAV: NavSection[] = [
     title: 'Configure',
     items: [
       { label: 'On-Site', to: '/on-site', icon: AppWindow, soon: true },
-      { label: 'Settings & RBAC', to: '/settings', icon: Sliders, soon: true },
+      { label: 'Settings & RBAC', to: '/settings', icon: Sliders },
     ],
   },
 ]

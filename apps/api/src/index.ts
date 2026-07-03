@@ -30,6 +30,11 @@ import recommendationsRoutes from './routes/recommendations/index.js'
 // lane:campaigns START
 import campaignsRoutes from './routes/campaigns/index.js'
 // lane:campaigns END
+// lane:rbac START
+import settingsRoutes from './routes/settings/index.js'
+import agencyRoutes from './routes/agency/index.js'
+import { actingMerchantPreHandler } from './services/agency/index.js'
+// lane:rbac END
 
 const app = Fastify({
   logger: {
@@ -74,6 +79,12 @@ await app.register(rateLimit, {
 await app.register(jwtPlugin)
 await app.register(authenticatePlugin)
 await app.register(apiKeyPlugin)
+// lane:rbac START — global acting-merchant re-scope for agency account switching (guide §9.4).
+// Registered BEFORE the route groups so it applies to all of them. Runs as a preHandler
+// (after every group's authenticate onRequest hook), gated: no-op unless an agency user
+// sends a verified x-acting-merchant-id header. See services/agency/acting-merchant.hook.ts.
+app.addHook('preHandler', actingMerchantPreHandler)
+// lane:rbac END
 await app.register(authRoutes, { prefix: '/auth' })
 await app.register(shopifyRoutes, { prefix: '/shopify' })
 await app.register(backfillRoutes, { prefix: '/backfill' })
@@ -96,6 +107,10 @@ await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
 // lane:campaigns START
 await app.register(campaignsRoutes, { prefix: '/api/v1/campaigns' })
 // lane:campaigns END
+// lane:rbac START
+await app.register(settingsRoutes, { prefix: '/api/v1/settings' })
+await app.register(agencyRoutes, { prefix: '/api/v1/agency' })
+// lane:rbac END
 
 app.get('/health', () => ({
   status: 'ok',

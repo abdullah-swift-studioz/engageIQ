@@ -51,3 +51,12 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:rbac START
+export { ACTING_MERCHANT_HEADER } from './types.js'
+export type {
+  AccessibleMerchant, AgencyContext,
+  TeamMember, CreateTeamMemberInput, UpdateTeamMemberInput,
+  AgencyAssignmentView,
+  AgencyClientReportRow, AgencyClientReport,
+} from './types.js'
+// lane:rbac END

@@ -6,6 +6,8 @@ import cohortRoutes from './cohort.routes.js'
 import attributionRoutes from './attribution.routes.js'
 import productRoutes from './product.routes.js'
 import codRoutes from './cod.routes.js'
+// lane:rbac
+import { requirePermission } from '../../services/rbac/index.js'
 
 /**
  * Analytics Engine route group (roadmap Phase 4), mounted at /api/v1/analytics.
@@ -22,6 +24,9 @@ import codRoutes from './cod.routes.js'
  */
 const analyticsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticate)
+  // lane:rbac START — analytics is read-only for every role that can reach it (incl. Analyst)
+  fastify.addHook('onRequest', requirePermission('analytics:read'))
+  // lane:rbac END
 
   await fastify.register(realtimeRoutes)
   await fastify.register(rfmRoutes)
