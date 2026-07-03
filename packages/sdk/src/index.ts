@@ -6,6 +6,8 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { initOnSite } from './onsite';
+
 (function (win: Window & typeof globalThis) {
   'use strict';
 
@@ -344,6 +346,16 @@
     trackPageExit();
     trackCartInteractions();
     trackCheckoutSteps();
+
+    // On-site personalization: fetch + render eligible popups / bars / embeds,
+    // reporting impressions & conversions through the same `track` pipeline.
+    initOnSite({
+      apiBase: _apiBase,
+      merchantId: _merchantId,
+      anonId: getAnonId(),
+      customerId: getShopifyCustomerId(),
+      track,
+    });
   }
 
   // ─── Auto-init from script data attributes ───────────────────────────────────

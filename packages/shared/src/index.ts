@@ -51,3 +51,20 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+
+// lane:onsite START
+export { ONSITE_IMPRESSION_EVENT, ONSITE_CONVERSION_EVENT } from './types.js'
+export type {
+  OnSiteElementTypeName,
+  OnSiteElementStatusName,
+  OnSiteTriggerType,
+  OnSiteFrequency,
+  OnSitePosition,
+  OnSiteDisplayRules,
+  OnSiteElementConfig,
+  OnSiteVariant,
+  OnSiteDeliveryRequest,
+  OnSiteDeliveryElement,
+  OnSiteDeliveryResponse,
+} from './types.js'
+// lane:onsite END

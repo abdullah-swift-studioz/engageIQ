@@ -778,3 +778,100 @@ export interface WebhookDeliveryJob {
   deliveryId?: string
 }
 // freeze-v2 END
+
+// lane:onsite START
+// ─── On-Site Personalization (roadmap 6.5 / guide 7.5) ────────────────────────
+// The contract shared between the API delivery endpoint, the storefront SDK
+// renderer, and the merchant config UI. It also shapes the two Json columns on
+// the frozen `OnSiteElement` model: `config` (OnSiteElementConfig) and
+// `displayRules` (OnSiteDisplayRules), plus the `variants` Json on `AbTest`.
+
+export type OnSiteElementTypeName = 'POPUP' | 'STICKY_BAR' | 'EMBED'
+
+// Lifecycle status stored as a String on OnSiteElement (not an enum in the schema).
+export type OnSiteElementStatusName = 'DRAFT' | 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
+
+// How an element is triggered on the storefront. The SDK enforces the timing of
+// these client-side; the delivery endpoint only decides *eligibility*.
+export type OnSiteTriggerType =
+  | 'new_visitor' // first-ever session for this browser
+  | 'exit_intent' // desktop cursor leaves toward the tab/close bar
+  | 'timed' // after N seconds on the page
+  | 'cart_value' // when the cart subtotal crosses a threshold
+  | 'product_view_restock' // on a product page the visitor previously viewed
+
+// Re-show gating, enforced client-side (localStorage / sessionStorage).
+export type OnSiteFrequency = 'always' | 'once_per_session' | 'once_per_day' | 'once_ever'
+
+// Placement of a popup / sticky bar.
+export type OnSitePosition =
+  | 'center'
+  | 'top'
+  | 'bottom'
+  | 'bottom_left'
+  | 'bottom_right'
+
+// The `displayRules` Json column: the trigger + its optional params + gating.
+export interface OnSiteDisplayRules {
+  trigger: OnSiteTriggerType
+  timedDelaySeconds?: number // trigger = 'timed'
+  cartValueThreshold?: number // trigger = 'cart_value' (PKR)
+  pagePattern?: string // only fire where location.pathname includes this substring
+  frequency?: OnSiteFrequency // default 'once_per_session'
+}
+
+// The `config` Json column: content + appearance. Subtype fields are optional.
+// Headline/body may contain personalization tokens like {{customer.first_name}}.
+export interface OnSiteElementConfig {
+  headline?: string
+  body?: string
+  ctaText?: string
+  ctaUrl?: string
+  captureEmail?: boolean // email-capture popups
+  incentiveCode?: string // discount code revealed / applied on the CTA
+  position?: OnSitePosition
+  imageUrl?: string
+  dismissible?: boolean
+  embedSelector?: string // EMBED only: CSS selector to inject the block into
+}
+
+// One A/B variant — mirrors an entry in the `AbTest.variants` Json array.
+export interface OnSiteVariant {
+  id: string
+  name: string
+  config: OnSiteElementConfig
+  allocationPct: number // 0..100; the variants of a test sum to 100
+}
+
+// ── Delivery contract (public endpoint → SDK) ──
+// The SDK POSTs visitor context; the endpoint returns the elements to render,
+// with any A/B variant already resolved deterministically for this visitor.
+
+export interface OnSiteDeliveryRequest {
+  merchantId: string
+  anonId: string
+  customerId?: string | null
+  pagePath?: string
+  cartValue?: number
+  viewedProductIds?: string[] // for 'product_view_restock' eligibility
+}
+
+export interface OnSiteDeliveryElement {
+  id: string // OnSiteElement id
+  type: OnSiteElementTypeName
+  config: OnSiteElementConfig // resolved config (the assigned variant's, under A/B)
+  displayRules: OnSiteDisplayRules
+  abTestId?: string // set when the element is under a running/decided A/B test
+  variantId?: string // the assigned variant id (echoed onto impression/conversion events)
+}
+
+export interface OnSiteDeliveryResponse {
+  elements: OnSiteDeliveryElement[]
+}
+
+// ClickHouse event types the SDK emits for on-site elements. They flow through
+// the existing /v1/sdk/events pipeline (no parallel ingestion path) and carry
+// { element_id, variant_id?, ab_test_id?, element_type } in `properties`.
+export const ONSITE_IMPRESSION_EVENT = 'onsite_impression' as const
+export const ONSITE_CONVERSION_EVENT = 'onsite_conversion' as const
+// lane:onsite END

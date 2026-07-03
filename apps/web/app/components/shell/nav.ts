@@ -86,7 +86,7 @@ export const NAV: NavSection[] = [
   {
     title: 'Configure',
     items: [
-      { label: 'On-Site', to: '/on-site', icon: AppWindow, soon: true },
+      { label: 'On-Site', to: '/on-site', icon: AppWindow }, // lane:onsite — route shipped
       { label: 'Settings & RBAC', to: '/settings', icon: Sliders, soon: true },
     ],
   },
