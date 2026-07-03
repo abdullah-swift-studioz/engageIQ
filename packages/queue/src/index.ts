@@ -12,5 +12,8 @@ export {
   // lane:ml START
   scoringQueue,
   // lane:ml END
+  // lane:wa-conversation START
+  conversationTimeoutQueue,
+  // lane:wa-conversation END
 } from './queues.js'
 export type { QueueName } from './queues.js'

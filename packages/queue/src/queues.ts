@@ -52,6 +52,16 @@ export const scoringQueue = new Queue('scoring', {
   defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
 })
 // lane:ml END
+// lane:wa-conversation START
+// Awaiting-reply timeouts for the two-way WhatsApp engine. Jobs are delayed to fire at awaitingReplyUntil.
+// Retries are safe here: expireConversation is deadline-guarded (only the first attempt flips the state)
+// and the timeout resume uses a deterministic dedupe jobId, so a retry after a transient failure/crash
+// recovers the enrollment without double-firing the branch (default 3 attempts + backoff).
+export const conversationTimeoutQueue = new Queue('conversation-timeout', {
+  connection: redisConnection,
+  defaultJobOptions,
+})
+// lane:wa-conversation END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -66,3 +76,6 @@ export type QueueName =
   // lane:ml START
   | 'scoring'
 // lane:ml END
+  // lane:wa-conversation START
+  | 'conversation-timeout'
+// lane:wa-conversation END

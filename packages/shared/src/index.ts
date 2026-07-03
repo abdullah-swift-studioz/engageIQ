@@ -51,3 +51,13 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:wa-conversation START
+export { CONVERSATION_TIMEOUT } from './types.js'
+export type {
+  ConversationContextType,
+  JourneyReplyBranch,
+  WaitForReplyConfig,
+  WaitForReplyStepConfig,
+  ConversationTimeoutJob,
+} from './types.js'
+// lane:wa-conversation END

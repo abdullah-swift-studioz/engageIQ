@@ -62,6 +62,9 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'WhatsApp Templates', to: '/whatsapp-templates', icon: MessageCircle },
       { label: 'Messages', to: '/messages', icon: Inbox },
+      // lane:wa-conversation START — two-way WhatsApp inbox (guide §7.2)
+      { label: 'Conversations', to: '/conversations', icon: MessageCircle },
+      // lane:wa-conversation END
     ],
   },
   {

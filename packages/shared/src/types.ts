@@ -778,3 +778,55 @@ export interface WebhookDeliveryJob {
   deliveryId?: string
 }
 // freeze-v2 END
+// lane:wa-conversation START
+// ─── Two-way WhatsApp conversation engine (roadmap 6.3-6.4 / guide 7.2, 10.1) ──
+// The inbound-reply engine that matches non-STOP WhatsApp messages to an OPEN conversation
+// (WhatsAppConversation, frozen in schema-freeze-v2) and routes them to the waiting context.
+// String-literal unions only — @engageiq/shared stays a dependency-free leaf; the DB
+// WhatsAppConversationState enum (OPEN/AWAITING_REPLY/CLOSED/EXPIRED) is used via @prisma/client
+// in the api layer, never imported here.
+
+// Stored on WhatsAppConversation.contextType (DB String — the taxonomy grows). "freeform" is an
+// inbound message with no structured wait; "journey_reply" resolves a journey wait-for-reply
+// branch; "verification" is handed off to the COD verify lane.
+export type ConversationContextType = 'journey_reply' | 'verification' | 'freeform'
+
+// One reply branch of a journey "wait for reply" step: an inbound whose normalized text matches
+// any keyword routes to the child JourneyStep whose `label` equals `label` — the same
+// child-by-label pattern the CONDITION step uses for its 'true' / 'false' children.
+export interface JourneyReplyBranch {
+  label: string
+  keywords: string[]
+}
+
+// The "wait for reply / branch on reply" behaviour attached to a journey step. Modeled inside an
+// ACTION step's Json `config` because the frozen JourneyStepType enum cannot grow. `timeoutMinutes`
+// bounds the awaiting-reply window; `fallbackLabel` is the child used when a reply matches no
+// branch, `timeoutLabel` the child used when the timeout fires (both optional — absent = complete).
+export interface WaitForReplyConfig {
+  timeoutMinutes: number
+  branches: JourneyReplyBranch[]
+  fallbackLabel?: string
+  timeoutLabel?: string
+}
+
+// A journey ACTION step's Json config that also carries a waitForReply block IS a wait-for-reply
+// step. The executor sends `content` on `channel` (WhatsApp only, for now), opens a journey_reply
+// conversation, and parks the enrollment until a matching reply or the timeout resumes it.
+export interface WaitForReplyStepConfig {
+  channel: 'WHATSAPP'
+  content: { body: string }
+  waitForReply: WaitForReplyConfig
+}
+
+// Delayed timeout job — one per await round, enqueued with { delay } onto the conversation-timeout
+// queue (BullMQ-idiomatic, exactly like the DELAY step). Idempotent via a jobId keyed on
+// (conversationId, awaitingReplyUntilMs); a no-op if the reply arrived first or the wait re-armed.
+export const CONVERSATION_TIMEOUT = 'conversation-timeout' as const
+
+export interface ConversationTimeoutJob {
+  type: 'timeout'
+  conversationId: string
+  awaitingReplyUntilMs: number
+}
+// lane:wa-conversation END
