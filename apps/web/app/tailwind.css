@@ -1,3 +1,75 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-white text-neutral-950 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Monochrome text selection — a small signature of the system. */
+  ::selection {
+    @apply bg-neutral-950 text-white;
+  }
+
+  /*
+   * Default keyboard-focus for any focusable element that does NOT opt into a
+   * ring (native links, etc.). Component primitives set
+   * `focus-visible:outline-none` and use a `focus-visible:ring-*` instead, so
+   * the two focus treatments never stack.
+   */
+  :focus-visible {
+    outline: 2px solid #0a0a0a;
+    outline-offset: 2px;
+  }
+
+  /* Thin monochrome scrollbars. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #d4d4d4 transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: #d4d4d4;
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #a3a3a3;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Tabular numerics — mono figures line up in tables and KPI tiles. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+}
+
+/* Respect reduced-motion everywhere. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
