@@ -718,3 +718,63 @@ export interface CampaignSendJob {
   merchantId: string
 }
 // lane:campaigns END
+// freeze-v2 START
+// ─── Wave-2 job payloads (schema-freeze-v2) ──────────────────────────────────
+// Pure additions for the new Wave-2 async workers — a queue-name const + a payload type per
+// worker, matching the existing MessageDispatchJob / ScoringJob / CampaignSendJob pattern.
+// String-literal unions only, so @engageiq/shared stays a dependency-free leaf (no @prisma/client).
+// The lanes that build these workers register the queues in packages/queue and the workers in
+// apps/api/src/worker.ts (append-only). No schema work remains — the tables already exist.
+
+// COD verification worker (roadmap 6.4 / guide 7.4): sends WhatsApp/SMS/IVR verification,
+// schedules reminders, and auto-cancels on no-response. One VerificationAttempt row per attempt.
+export const COD_VERIFICATION = 'cod-verification' as const
+
+export type VerificationChannelName = 'WHATSAPP' | 'SMS' | 'IVR'
+
+export type VerificationJob =
+  | { type: 'start'; merchantId: string; codOrderId: string; channel: VerificationChannelName }
+  | { type: 'reminder'; merchantId: string; codOrderId: string; attemptNumber: number }
+  | { type: 'timeout'; merchantId: string; codOrderId: string }
+
+// Web Push send worker: renders + delivers a Web Push notification to a customer's active
+// PushSubscription rows. Omit pushSubscriptionId to fan out to all of the customer's active subs.
+export const PUSH_SEND = 'push-send' as const
+
+export interface PushSendJob {
+  type: 'send'
+  merchantId: string
+  customerId: string
+  title: string
+  body: string
+  url?: string
+  icon?: string
+  pushSubscriptionId?: string
+}
+
+// Courier tracking poll worker (roadmap 8.1 / guide 9.2): polls a courier for one shipment's
+// latest status, appends CourierEvent rows, and advances CourierShipment.status.
+export const COURIER_POLL = 'courier-poll' as const
+
+export type CourierName = 'POSTEX' | 'LEOPARDS' | 'TCS' | 'MP' | 'OTHER'
+
+export interface CourierPollJob {
+  type: 'poll'
+  merchantId: string
+  shipmentId: string
+  courier: CourierName
+}
+
+// Outbound webhook delivery worker (roadmap 8.2 / guide 9.3): POSTs an event payload to a
+// merchant's OutboundWebhook endpoint with HMAC signing + retry/backoff. deliveryId is set on retries.
+export const WEBHOOK_DELIVERY = 'webhook-delivery' as const
+
+export interface WebhookDeliveryJob {
+  type: 'deliver'
+  merchantId: string
+  webhookId: string
+  event: string
+  payload: unknown
+  deliveryId?: string
+}
+// freeze-v2 END

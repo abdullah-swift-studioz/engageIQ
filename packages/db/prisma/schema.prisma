@@ -150,6 +150,72 @@ enum RecommendationType {
   RESTOCK
 }
 
+// ─── Freeze v2: Wave-2 enums (email, on-site, cod-verify, courier, a/b, agency) ──
+
+enum Courier {
+  POSTEX
+  LEOPARDS
+  TCS
+  MP
+  OTHER // freeze-v2: escape hatch for couriers beyond the core 4 (BlueEx/Trax/Swyft/…) — avoids a future migration
+}
+
+enum VerificationChannel {
+  WHATSAPP
+  SMS
+  IVR
+}
+
+enum VerificationStatus {
+  PENDING // queued, not yet sent
+  AWAITING // sent, awaiting customer reply
+  CONFIRMED // customer confirmed (YES)
+  CANCELLED // customer cancelled (NO)
+  NO_RESPONSE // reply window elapsed → auto-cancel candidate
+  FAILED // send/call failed
+}
+
+enum OnSiteElementType {
+  POPUP
+  STICKY_BAR
+  EMBED // freeze-v2: inline/embedded storefront content (e.g. product-page restock block)
+}
+
+enum AbTestStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  WINNER_DECIDED // winner chosen; rolling out to the remaining audience
+  COMPLETED
+  CANCELLED
+}
+
+enum AbTestEntityType {
+  CAMPAIGN
+  EMAIL_TEMPLATE
+  ONSITE_ELEMENT
+}
+
+enum ShipmentStatus {
+  CREATED
+  DISPATCHED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  ATTEMPTED // delivery attempted, customer unavailable → reattempt
+  DELIVERED
+  RETURN_IN_TRANSIT // RTO leg in progress
+  RETURNED
+  UNDELIVERABLE
+  CANCELLED
+}
+
+enum WhatsAppConversationState {
+  OPEN
+  AWAITING_REPLY
+  CLOSED
+  EXPIRED
+}
+
 // ─── Merchants ────────────────────────────────────────────────────────────────
 
 model Merchant {
@@ -166,6 +232,13 @@ model Merchant {
   currency             String    @default("PKR")
   isActive             Boolean   @default(true) @map("is_active")
   backfillCompletedAt  DateTime? @map("backfill_completed_at")
+
+  // freeze-v2: billing / subscription (roadmap 8.3 — PKR pricing plans). PLACEHOLDERs: no billing engine yet.
+  subscriptionStatus String?   @map("subscription_status") // "trialing"|"active"|"past_due"|"frozen"|"cancelled"
+  shopifyChargeId    String?   @map("shopify_charge_id") // Shopify recurring-application-charge id
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  priceOverride      Decimal?  @map("price_override") @db.Decimal(12, 2)
 
   // Agency parent/child: an agency merchant can own child merchants
   agencyId String?    @map("agency_id")
@@ -195,6 +268,25 @@ model Merchant {
   modelRuns          ModelRun[]
   savedViews         SavedView[]
 
+  // freeze-v2 back-relations
+  emailTemplates            EmailTemplate[]
+  emailSuppressions         EmailSuppression[]
+  sendingDomains            SendingDomain[]
+  abTests                   AbTest[]
+  onSiteElements            OnSiteElement[]
+  verificationAttempts      VerificationAttempt[]
+  whatsappConversations     WhatsAppConversation[]
+  pushSubscriptions         PushSubscription[]
+  courierShipments          CourierShipment[]
+  courierEvents             CourierEvent[]
+  outboundWebhooks          OutboundWebhook[]
+  webhookDeliveries         WebhookDelivery[]
+  merchantIntegrations      MerchantIntegration[]
+  aiGenerations             AiGeneration[]
+  settings                  MerchantSettings?
+  agencyAssignmentsAsAgency AgencyAssignment[]     @relation("AgencyAssignmentAgency")
+  agencyAssignmentsAsChild  AgencyAssignment[]     @relation("AgencyAssignmentChild")
+
   @@map("merchants")
 }
 
@@ -215,6 +307,9 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  // freeze-v2 back-relation
+  agencyAssignments AgencyAssignment[]
 
   @@unique([merchantId, email])
   @@index([merchantId])
@@ -265,6 +360,8 @@ model Customer {
   ltv180d        Decimal?        @map("ltv_180d") @db.Decimal(12, 2)
   ltv365d        Decimal?        @map("ltv_365d") @db.Decimal(12, 2)
   ltvScoredAt    DateTime?       @map("ltv_scored_at")
+  // freeze-v2 PLACEHOLDER: AI-computed next best action (Feature Guide §4.3) — no producer yet
+  nextBestAction String?         @map("next_best_action")
 
   // COD profile
   codOrderCount     Int     @default(0) @map("cod_order_count")
@@ -277,6 +374,7 @@ model Customer {
   isSubscribedEmail    Boolean @default(true) @map("is_subscribed_email")
   isSubscribedSms      Boolean @default(true) @map("is_subscribed_sms")
   isSubscribedWhatsapp Boolean @default(true) @map("is_subscribed_whatsapp")
+  isSubscribedPush     Boolean @default(true) @map("is_subscribed_push") // freeze-v2
 
   // Anonymous ID linking (from Storefront SDK)
   anonIds String[] @default([]) @map("anon_ids")
@@ -303,6 +401,12 @@ model Customer {
   messages           Message[]
   campaignRecipients CampaignRecipient[]
   recommendations    Recommendation[]
+
+  // freeze-v2 back-relations
+  pushSubscriptions     PushSubscription[]
+  whatsappConversations WhatsAppConversation[]
+  verificationAttempts  VerificationAttempt[]
+  courierShipments      CourierShipment[]
 
   @@unique([merchantId, shopifyCustomerId])
   @@unique([merchantId, email])
@@ -333,6 +437,9 @@ model Segment {
   merchant    Merchant            @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   memberships SegmentMembership[]
   campaigns   Campaign[]
+
+  // freeze-v2 back-relation
+  onSiteElements OnSiteElement[]
 
   @@index([merchantId])
   @@map("segments")
@@ -403,15 +510,18 @@ model Campaign {
 // ─── Journeys ─────────────────────────────────────────────────────────────────
 
 model Journey {
-  id            String        @id @default(cuid())
-  merchantId    String        @map("merchant_id")
-  name          String
-  description   String?
-  triggerType   String        @map("trigger_type") // e.g. "order_placed", "segment_entered"
-  triggerConfig Json          @map("trigger_config")
-  status        JourneyStatus @default(DRAFT)
-  reEntryRule   ReEntryRule   @default(DISALLOW) @map("re_entry_rule")
-  exitTrigger   String?       @map("exit_trigger") // e.g. "order_placed" — single exit trigger per journey
+  id                    String        @id @default(cuid())
+  merchantId            String        @map("merchant_id")
+  name                  String
+  description           String?
+  triggerType           String        @map("trigger_type") // e.g. "order_placed", "segment_entered"
+  triggerConfig         Json          @map("trigger_config")
+  status                JourneyStatus @default(DRAFT)
+  reEntryRule           ReEntryRule   @default(DISALLOW) @map("re_entry_rule")
+  exitTrigger           String?       @map("exit_trigger") // e.g. "order_placed" — single exit trigger per journey
+  // freeze-v2: provenance when this journey was instantiated from a FlowTemplate (6.5). Soft key, not an FK
+  // (FlowTemplate rows can be retired via isActive without breaking existing journeys).
+  sourceFlowTemplateKey String?       @map("source_flow_template_key")
 
   // Analytics
   enrollmentCount Int @default(0) @map("enrollment_count")
@@ -469,6 +579,9 @@ model JourneyEnrollment {
   // Phase 0 freeze back-relation
   messages Message[]
 
+  // freeze-v2 back-relation
+  whatsappConversations WhatsAppConversation[]
+
   @@index([journeyId, customerId, status])
   @@index([customerId])
   @@index([journeyId, status])
@@ -503,6 +616,10 @@ model CodOrder {
 
   merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id])
+
+  // freeze-v2 back-relations
+  verificationAttempts VerificationAttempt[]
+  courierShipments     CourierShipment[]
 
   @@unique([merchantId, shopifyOrderId])
   @@index([merchantId])
@@ -542,6 +659,9 @@ model Order {
 
   merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
   customer Customer? @relation(fields: [customerId], references: [id])
+
+  // freeze-v2 back-relation
+  courierShipments CourierShipment[]
 
   @@unique([merchantId, shopifyOrderId])
   @@index([merchantId])
@@ -587,6 +707,7 @@ model ApiKey {
   name       String
   keyHash    String    @unique @map("key_hash") // bcrypt hash of the full key
   keyPrefix  String    @map("key_prefix") // first 12 chars e.g. "eiq_live_abc" for display
+  scopes     String[]  @default([]) // freeze-v2: public REST API per-key scoping (8.2)
   isActive   Boolean   @default(true) @map("is_active")
   lastUsedAt DateTime? @map("last_used_at")
   expiresAt  DateTime? @map("expires_at")
@@ -639,7 +760,7 @@ model Message {
   errorCode           String?          @map("error_code")
   errorTitle          String?          @map("error_title")
   body                String
-  toPhone             String           @map("to_phone") // E.164
+  toPhone             String           @map("to_phone") // E.164 (WHATSAPP/SMS); email/push use the '' sentinel
   fromPhone           String?          @map("from_phone") // set for inbound
   journeyEnrollmentId String?          @map("journey_enrollment_id") // attribution (nullable)
   campaignId          String?          @map("campaign_id") // attribution (nullable)
@@ -647,6 +768,15 @@ model Message {
   deliveredAt         DateTime?        @map("delivered_at")
   readAt              DateTime?        @map("read_at")
   failedAt            DateTime?        @map("failed_at")
+
+  // freeze-v2: cross-channel fields so EMAIL/PUSH sends log into the same Message table (6.4).
+  toEmail         String?   @map("to_email") // email destination (channel = EMAIL)
+  subject         String? // rendered send-time subject (email)
+  bodyHtml        String?   @map("body_html") // PLACEHOLDER: rendered email HTML (body holds text)
+  emailTemplateId String?   @map("email_template_id") // PLACEHOLDER: source EmailTemplate
+  openedAt        DateTime? @map("opened_at") // PLACEHOLDER: email open (7.3 A/B, engagement stats)
+  clickedAt       DateTime? @map("clicked_at") // PLACEHOLDER: email/push click
+  metadata        Json? // PLACEHOLDER: channel-specific render fields (push title/url/icon)
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -657,9 +787,14 @@ model Message {
   campaign          Campaign?          @relation(fields: [campaignId], references: [id])
   campaignRecipient CampaignRecipient? // 1:1 back-relation (CampaignRecipient.messageId @unique)
 
+  // freeze-v2 relations
+  emailTemplate        EmailTemplate?        @relation(fields: [emailTemplateId], references: [id], onDelete: SetNull)
+  verificationAttempts VerificationAttempt[]
+
   @@index([merchantId])
   @@index([customerId])
   @@index([merchantId, channel, direction])
+  @@index([emailTemplateId])
   @@map("messages")
 }
 
@@ -668,14 +803,16 @@ model Message {
 // (@@unique([campaignId, customerId])), per-recipient resend, and attribution.
 
 model CampaignRecipient {
-  id         String                  @id @default(cuid())
-  merchantId String                  @map("merchant_id")
-  campaignId String                  @map("campaign_id")
-  customerId String                  @map("customer_id")
-  status     CampaignRecipientStatus @default(PENDING)
-  messageId  String?                 @unique @map("message_id") // FK to Message (wamid lives on Message)
-  sentAt     DateTime?               @map("sent_at")
-  failedAt   DateTime?               @map("failed_at")
+  id          String                  @id @default(cuid())
+  merchantId  String                  @map("merchant_id")
+  campaignId  String                  @map("campaign_id")
+  customerId  String                  @map("customer_id")
+  status      CampaignRecipientStatus @default(PENDING)
+  messageId   String?                 @unique @map("message_id") // FK to Message (wamid lives on Message)
+  // freeze-v2: A/B variant assignment (id references an element inside AbTest.variants Json, not a table row)
+  abVariantId String?                 @map("ab_variant_id")
+  sentAt      DateTime?               @map("sent_at")
+  failedAt    DateTime?               @map("failed_at")
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -786,4 +923,436 @@ model SavedView {
 
   @@index([merchantId, type])
   @@map("saved_views")
+}
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Freeze v2 — Wave-2 tables (email, on-site, cod-verify, courier, webhooks, push,
+// flow-library, agency, per-merchant settings/integrations, AI copy).
+// Tables/columns only — no feature logic. Every merchant table carries a direct
+// merchantId + FK onDelete:Cascade + @@index([merchantId]). Two deliberate
+// exceptions: FlowTemplate (system/global) and AgencyAssignment (cross-merchant map).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── Email (roadmap 6.4 / guide 7.3) ──────────────────────────────────────────
+
+model EmailTemplate {
+  id              String  @id @default(cuid())
+  merchantId      String  @map("merchant_id")
+  name            String
+  subject         String? // nullable: drafts; may carry personalization tokens
+  preheader       String? // PLACEHOLDER: email preheader text
+  blocks          Json // drag-drop section structure [{ type, ... }]
+  status          String  @default("DRAFT") // "DRAFT" | "ACTIVE" | "ARCHIVED" (String: not in the requested enum set)
+  isTransactional Boolean @default(false) @map("is_transactional")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@index([merchantId])
+  @@map("email_templates")
+}
+
+model EmailSuppression {
+  id           String   @id @default(cuid())
+  merchantId   String   @map("merchant_id")
+  email        String
+  reason       String // "hard_bounce" | "complaint" | "manual"
+  suppressedAt DateTime @default(now()) @map("suppressed_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, email])
+  @@index([merchantId])
+  @@map("email_suppressions")
+}
+
+model SendingDomain {
+  id             String    @id @default(cuid())
+  merchantId     String    @map("merchant_id")
+  domain         String
+  status         String    @default("PENDING") // "PENDING" | "VERIFIED" | "FAILED"
+  dkimVerified   Boolean   @default(false) @map("dkim_verified")
+  spfVerified    Boolean   @default(false) @map("spf_verified")
+  dmarcVerified  Boolean   @default(false) @map("dmarc_verified")
+  dnsRecords     Json?     @map("dns_records") // PLACEHOLDER: required DNS records to publish
+  dedicatedIp    String?   @map("dedicated_ip") // PLACEHOLDER: Pro-plan dedicated IP
+  sesIdentityArn String?   @map("ses_identity_arn") // PLACEHOLDER: AWS SES identity ref
+  verifiedAt     DateTime? @map("verified_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, domain])
+  @@index([merchantId])
+  @@map("sending_domains")
+}
+
+// ─── A/B testing (roadmap 6.4 / guide 7.3, 5.5) ───────────────────────────────
+
+model AbTest {
+  id              String           @id @default(cuid())
+  merchantId      String           @map("merchant_id")
+  name            String
+  entityType      AbTestEntityType @map("entity_type")
+  entityId        String?          @map("entity_id") // the tested campaign/template/element (nullable until attached)
+  variants        Json // [{ id, name, config, allocationPct, metrics }]
+  winnerMetric    String           @map("winner_metric") // "open_rate" | "click_rate" | "conversion_rate" | "revenue"
+  winnerVariantId String?          @map("winner_variant_id") // null until decided
+  status          AbTestStatus     @default(DRAFT)
+  sampleSizePct   Int?             @map("sample_size_pct") // PLACEHOLDER
+  confidenceLevel Float?           @map("confidence_level") // PLACEHOLDER: significance result
+  startedAt       DateTime?        @map("started_at")
+  endedAt         DateTime?        @map("ended_at")
+  decidedAt       DateTime?        @map("decided_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([merchantId, entityType, entityId])
+  @@map("ab_tests")
+}
+
+// ─── On-site personalization (roadmap 6.5 / guide 7.5) ────────────────────────
+
+model OnSiteElement {
+  id              String            @id @default(cuid())
+  merchantId      String            @map("merchant_id")
+  name            String
+  type            OnSiteElementType
+  config          Json // content/appearance (subtype lives here)
+  segmentId       String?           @map("segment_id") // null = show to all visitors
+  displayRules    Json              @map("display_rules") // triggers: exit-intent / timed / cart-value / page match
+  status          String            @default("DRAFT") // "DRAFT" | "ACTIVE" | "PAUSED" | "ARCHIVED"
+  priority        Int? // PLACEHOLDER: ordering when multiple match
+  impressionCount Int               @default(0) @map("impression_count") // PLACEHOLDER: recomputed from ClickHouse
+  conversionCount Int               @default(0) @map("conversion_count") // PLACEHOLDER: recomputed from ClickHouse
+  startsAt        DateTime?         @map("starts_at") // PLACEHOLDER: scheduling
+  endsAt          DateTime?         @map("ends_at") // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  segment  Segment? @relation(fields: [segmentId], references: [id], onDelete: SetNull)
+
+  @@index([merchantId])
+  @@index([merchantId, status])
+  @@index([segmentId])
+  @@map("onsite_elements")
+}
+
+// ─── COD verification (roadmap 6.4 / guide 7.4) ───────────────────────────────
+
+model VerificationAttempt {
+  id            String              @id @default(cuid())
+  merchantId    String              @map("merchant_id")
+  codOrderId    String              @map("cod_order_id")
+  customerId    String?             @map("customer_id") // PLACEHOLDER convenience: query attempts by customer
+  channel       VerificationChannel
+  status        VerificationStatus  @default(PENDING)
+  attemptNumber Int                 @default(1) @map("attempt_number") // 1 = first, 2 = reminder, …
+  sentAt        DateTime?           @map("sent_at")
+  respondedAt   DateTime?           @map("responded_at")
+  response      String? // raw reply "YES" / "NO" / IVR digit
+  messageId     String?             @map("message_id") // PLACEHOLDER: the outbound verification Message
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant  @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  codOrder CodOrder  @relation(fields: [codOrderId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  message  Message?  @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@unique([codOrderId, attemptNumber])
+  @@index([merchantId])
+  @@index([merchantId, status])
+  @@index([codOrderId])
+  @@index([customerId])
+  @@index([messageId])
+  @@map("verification_attempts")
+}
+
+// ─── Two-way WhatsApp conversation (roadmap 6.3-6.4 / guide 7.2) ───────────────
+
+model WhatsAppConversation {
+  id                  String                    @id @default(cuid())
+  merchantId          String                    @map("merchant_id")
+  customerId          String?                   @map("customer_id")
+  phone               String // E.164 counterpart — match inbound when customerId is null
+  contextType         String                    @map("context_type") // "verification" | "journey_reply" (String: likely to grow)
+  contextId           String?                   @map("context_id") // id of verif attempt / journey enrollment / cod order
+  awaitingReplyUntil  DateTime?                 @map("awaiting_reply_until")
+  state               WhatsAppConversationState @default(OPEN)
+  lastInboundAt       DateTime?                 @map("last_inbound_at") // PLACEHOLDER: 24h window tracking
+  lastOutboundAt      DateTime?                 @map("last_outbound_at") // PLACEHOLDER
+  journeyEnrollmentId String?                   @map("journey_enrollment_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant          Merchant           @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer          Customer?          @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  journeyEnrollment JourneyEnrollment? @relation(fields: [journeyEnrollmentId], references: [id], onDelete: SetNull)
+
+  // NOTE: a partial UNIQUE (merchant_id, phone) WHERE state = 'OPEN' is added as raw SQL in the
+  // migration (Prisma cannot express a partial-unique index) to guarantee one OPEN conversation per phone.
+  @@index([merchantId])
+  @@index([merchantId, phone])
+  @@index([customerId])
+  @@index([journeyEnrollmentId])
+  @@map("whatsapp_conversations")
+}
+
+// ─── Pre-built flow library (roadmap 6.5 / guide 7.6) — SYSTEM/GLOBAL, no merchantId ──
+
+model FlowTemplate {
+  id              String    @id @default(cuid())
+  key             String    @unique // stable id, e.g. "abandoned_cart_whatsapp_first"
+  name            String
+  category        String // "abandoned_cart" | "welcome" | "post_purchase" | "win_back" | "loyalty_vip" | "cod"
+  description     String
+  graphJson       Json      @map("graph_json") // journey graph cloned into journey_steps on activation
+  channels        Channel[] // channels the flow uses
+  isSystem        Boolean   @default(true) @map("is_system")
+  isActive        Boolean   @default(true) @map("is_active") // PLACEHOLDER: retire a system flow
+  icon            String? // PLACEHOLDER: catalog UI
+  previewImageUrl String?   @map("preview_image_url") // PLACEHOLDER
+  sortOrder       Int?      @map("sort_order") // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@map("flow_templates")
+}
+
+// ─── Web Push ─────────────────────────────────────────────────────────────────
+
+model PushSubscription {
+  id         String    @id @default(cuid())
+  merchantId String    @map("merchant_id")
+  customerId String    @map("customer_id")
+  endpoint   String // push-service endpoint (the unique subscription id)
+  keys       Json // { p256dh, auth } Web Push encryption keys
+  userAgent  String?   @map("user_agent")
+  isActive   Boolean   @default(true) @map("is_active")
+  lastUsedAt DateTime? @map("last_used_at") // PLACEHOLDER
+  expiredAt  DateTime? @map("expired_at") // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, endpoint])
+  @@index([merchantId])
+  @@index([customerId])
+  @@map("push_subscriptions")
+}
+
+// ─── Courier integrations (roadmap 8.1 / guide 9.2) ───────────────────────────
+
+model CourierShipment {
+  id             String         @id @default(cuid())
+  merchantId     String         @map("merchant_id")
+  orderId        String?        @map("order_id")
+  codOrderId     String?        @map("cod_order_id") // PLACEHOLDER: link for COD acceptance-rate updates
+  customerId     String?        @map("customer_id") // PLACEHOLDER convenience
+  courier        Courier
+  trackingNumber String?        @map("tracking_number") // nullable: some couriers book first, tracking arrives async
+  status         ShipmentStatus @default(CREATED)
+  codAmount      Decimal?       @map("cod_amount") @db.Decimal(12, 2) // PLACEHOLDER
+  codCollected   Boolean        @default(false) @map("cod_collected")
+  codCollectedAt DateTime?      @map("cod_collected_at") // PLACEHOLDER
+  returnReason   String?        @map("return_reason")
+  dispatchedAt   DateTime?      @map("dispatched_at")
+  deliveredAt    DateTime?      @map("delivered_at")
+  returnedAt     DateTime?      @map("returned_at")
+  rawTracking    Json?          @map("raw_tracking") // PLACEHOLDER: last raw courier payload
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant       @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  order    Order?         @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  codOrder CodOrder?      @relation(fields: [codOrderId], references: [id], onDelete: SetNull)
+  customer Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  events   CourierEvent[]
+
+  @@unique([merchantId, courier, trackingNumber])
+  @@index([merchantId])
+  @@index([merchantId, status])
+  @@index([orderId])
+  @@index([codOrderId])
+  @@index([customerId])
+  @@map("courier_shipments")
+}
+
+model CourierEvent {
+  id          String         @id @default(cuid())
+  merchantId  String         @map("merchant_id") // direct for tenant safety (log-child, like Message/CampaignRecipient)
+  shipmentId  String         @map("shipment_id")
+  status      ShipmentStatus
+  description String? // PLACEHOLDER: human-readable courier status
+  externalId  String?        @map("external_id") // courier's event id (dedup)
+  raw         Json? // raw courier webhook/poll payload
+  occurredAt  DateTime       @map("occurred_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  shipment CourierShipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  @@unique([shipmentId, externalId]) // dedup polled events (NULLs are distinct → un-id'd events still insert)
+  @@index([merchantId])
+  @@index([shipmentId])
+  @@index([shipmentId, occurredAt])
+  @@map("courier_events")
+}
+
+// ─── Public REST API & outbound webhooks (roadmap 8.2 / guide 9.3) ────────────
+
+model OutboundWebhook {
+  id          String   @id @default(cuid())
+  merchantId  String   @map("merchant_id")
+  url         String
+  events      String[] @default([]) // "segment.entered" | "campaign.completed" | "cod.verification_result" | …
+  secret      String // merchant-owned HMAC signing secret — SECURITY: encrypt at rest (app-layer/KMS)
+  isActive    Boolean  @default(true) @map("is_active")
+  description String? // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant   Merchant          @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([merchantId])
+  @@map("outbound_webhooks")
+}
+
+model WebhookDelivery {
+  id          String    @id @default(cuid())
+  merchantId  String    @map("merchant_id")
+  webhookId   String    @map("webhook_id")
+  event       String
+  payload     Json
+  statusCode  Int?      @map("status_code") // null until a response is received
+  attempts    Int       @default(0)
+  success     Boolean   @default(false) // PLACEHOLDER
+  error       String? // PLACEHOLDER
+  nextRetryAt DateTime? @map("next_retry_at") // PLACEHOLDER: backoff scheduling
+  deliveredAt DateTime? @map("delivered_at") // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant        @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  webhook  OutboundWebhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([webhookId])
+  @@index([webhookId, createdAt])
+  @@index([success, nextRetryAt]) // retry sweep: WHERE success = false AND nextRetryAt <= now()
+  @@map("webhook_deliveries")
+}
+
+// ─── Agency accounts (roadmap 8.3 / guide 9.4) — cross-merchant mapping ────────
+
+model AgencyAssignment {
+  id               String  @id @default(cuid())
+  agencyMerchantId String  @map("agency_merchant_id")
+  userId           String  @map("user_id")
+  childMerchantId  String  @map("child_merchant_id")
+  createdBy        String? @map("created_by") // PLACEHOLDER: who granted the assignment
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  agencyMerchant Merchant @relation("AgencyAssignmentAgency", fields: [agencyMerchantId], references: [id], onDelete: Cascade)
+  childMerchant  Merchant @relation("AgencyAssignmentChild", fields: [childMerchantId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, childMerchantId])
+  @@index([agencyMerchantId])
+  @@index([userId])
+  @@index([childMerchantId])
+  @@map("agency_assignments")
+}
+
+// ─── Per-merchant provider credentials (WhatsApp / courier / SMS / SES / IVR) ──
+
+model MerchantIntegration {
+  id          String    @id @default(cuid())
+  merchantId  String    @map("merchant_id")
+  provider    String // "WHATSAPP" | "POSTEX" | "LEOPARDS" | "TCS" | "MP" | "TWILIO" | "SES" | "FIXERR"
+  credentials Json // SECURITY: encrypt at rest (app-layer/KMS) — PLACEHOLDER
+  config      Json? // non-secret config (phone_number_id, WABA id, from address)
+  externalId  String?   @map("external_id") // e.g. WhatsApp phone_number_id — inbound-webhook → merchant routing
+  status      String    @default("DISCONNECTED") // "CONNECTED" | "DISCONNECTED" | "ERROR"
+  isActive    Boolean   @default(true) @map("is_active")
+  connectedAt DateTime? @map("connected_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@unique([merchantId, provider]) // one integration per provider per merchant
+  @@unique([provider, externalId]) // a provider external id (e.g. phone_number_id) maps to exactly one merchant
+  @@index([merchantId])
+  @@index([provider, externalId])
+  @@map("merchant_integrations")
+}
+
+// ─── Per-merchant settings (COD / fake-order / attribution / email / white-label) ──
+
+model MerchantSettings {
+  id                  String @id @default(cuid())
+  merchantId          String @unique @map("merchant_id") // one row per merchant
+  codVerification     Json?  @map("cod_verification") // PLACEHOLDER: channel, reminder cadence, auto-cancel window (7.4)
+  fakeOrderThresholds Json?  @map("fake_order_thresholds") // PLACEHOLDER: { process, verify, cancel } bands (7.3/8.5)
+  attributionWindows  Json?  @map("attribution_windows") // PLACEHOLDER: per-channel windows (email 7d / sms 24h / wa 3d)
+  emailDefaults       Json?  @map("email_defaults") // PLACEHOLDER: from-name, reply-to
+  branding            Json? // PLACEHOLDER: white-label logo / color / company / footer (9.4)
+  extra               Json? // PLACEHOLDER: forward-compat catch-all
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@map("merchant_settings")
+}
+
+// ─── AI copywriter audit / cost trail (roadmap 7.4 / guide 8.3) ───────────────
+
+model AiGeneration {
+  id               String   @id @default(cuid())
+  merchantId       String   @map("merchant_id")
+  userId           String?  @map("user_id") // soft ref to the requesting user (no FK)
+  purpose          String // "email_subject" | "whatsapp_body" | "sms_copy" | …
+  channel          String? // target channel if applicable
+  language         String? // "en" | "ur"
+  contextJson      Json?    @map("context_json") // goal / segment / offer / tone inputs
+  variants         Json // the generated variants
+  chosenIndex      Int?     @map("chosen_index") // which variant the merchant kept
+  model            String? // LLM model id
+  promptTokens     Int?     @map("prompt_tokens") // PLACEHOLDER: cost trail
+  completionTokens Int?     @map("completion_tokens") // PLACEHOLDER
+  costUsd          Decimal? @map("cost_usd") @db.Decimal(10, 4) // PLACEHOLDER
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  merchant Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId])
+  @@index([merchantId, purpose])
+  @@map("ai_generations")
 }
