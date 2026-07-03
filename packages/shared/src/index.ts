@@ -51,3 +51,6 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:push START
+export type { WebPushSubscription, PushNotification } from './types.js'
+// lane:push END

@@ -52,6 +52,15 @@ export const scoringQueue = new Queue('scoring', {
   defaultJobOptions: { ...defaultJobOptions, attempts: 2 },
 })
 // lane:ml END
+// lane:push START
+// Web Push delivery. Best-effort per subscription; attempts:1 because a fan-out send that
+// partially succeeds must not re-run (it would re-notify already-delivered devices). The
+// worker handles transient per-subscription failures internally and prunes dead subs.
+export const pushSendQueue = new Queue('push-send', {
+  connection: redisConnection,
+  defaultJobOptions: { ...defaultJobOptions, attempts: 1 },
+})
+// lane:push END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -66,3 +75,6 @@ export type QueueName =
   // lane:ml START
   | 'scoring'
 // lane:ml END
+  // lane:push START
+  | 'push-send'
+// lane:push END
