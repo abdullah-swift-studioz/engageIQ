@@ -51,3 +51,12 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:email START
+export type {
+  EmailBlockAlign, EmailProductSource,
+  EmailTextBlock, EmailImageBlock, EmailButtonBlock,
+  EmailDividerBlock, EmailSpacerBlock,
+  EmailDynamicProductBlock, EmailConditionalBlock,
+  EmailBlock, EmailRenderProduct, EmailRenderContext,
+} from './types.js'
+// lane:email END

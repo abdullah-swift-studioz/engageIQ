@@ -23,6 +23,10 @@ import { getAdapter } from '../lib/channels/registry.js'
 import { substituteVariables } from '../lib/channels/template-variables.js'
 import type { VariableMapEntry } from '../lib/channels/template-variables.js'
 import { checkRateLimit, jitteredReEnqueueDelay } from '../lib/channels/rate-limit.js'
+// lane:email START — EMAIL channel send path (roadmap 6.4). Delegates all email logic to
+// services/email so this worker stays a thin router. See services/email/dispatch.ts.
+import { dispatchEmail } from '../services/email/dispatch.js'
+// lane:email END
 
 interface JobContext {
   jobId?: string
@@ -91,7 +95,16 @@ export async function processMessageDispatchJob(
     throw new UnrecoverableError(`Customer ${data.customerId} not found for merchant ${data.merchantId}`)
   }
 
-  // 2. Stub channels (SMS / Email / Push) are not active yet — skip cleanly, no row.
+  // lane:email START — EMAIL is a live channel. Delegate to the email dispatch service,
+  // which handles suppression/consent, per-recipient render, send, Message persistence,
+  // and CampaignRecipient flip. Throws for retryable/permanent failures (BullMQ retry).
+  if (data.channel === 'EMAIL') {
+    await dispatchEmail(data, customer as unknown as Parameters<typeof dispatchEmail>[1])
+    return
+  }
+  // lane:email END
+
+  // 2. Stub channels (SMS / Push) are not active yet — skip cleanly, no row.
   if (data.channel !== 'WHATSAPP') {
     await markRecipient(data, 'SKIPPED')
     console.info(

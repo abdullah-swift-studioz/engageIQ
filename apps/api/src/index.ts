@@ -30,6 +30,11 @@ import recommendationsRoutes from './routes/recommendations/index.js'
 // lane:campaigns START
 import campaignsRoutes from './routes/campaigns/index.js'
 // lane:campaigns END
+// lane:email START
+import emailTemplatesRoutes from './routes/email-templates/index.js'
+import sendingDomainsRoutes from './routes/sending-domains/index.js'
+import emailTrackingRoutes from './routes/email/tracking.js'
+// lane:email END
 
 const app = Fastify({
   logger: {
@@ -96,6 +101,11 @@ await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
 // lane:campaigns START
 await app.register(campaignsRoutes, { prefix: '/api/v1/campaigns' })
 // lane:campaigns END
+// lane:email START
+await app.register(emailTemplatesRoutes, { prefix: '/api/v1/email-templates' })
+await app.register(sendingDomainsRoutes, { prefix: '/api/v1/sending-domains' })
+await app.register(emailTrackingRoutes, { prefix: '/email' })
+// lane:email END
 
 app.get('/health', () => ({
   status: 'ok',
