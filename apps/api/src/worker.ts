@@ -33,6 +33,10 @@ import { createCourierPollWorker, registerCourierPollScheduler } from './workers
 import type { WebhookDeliveryJob } from '@engageiq/shared'
 import { createWebhookDeliveryWorker } from './workers/webhook-delivery.worker.js'
 // lane:public-api END
+// lane:wa-conversation START
+import type { ConversationTimeoutJob } from '@engageiq/shared'
+import { createConversationTimeoutWorker } from './workers/conversation-timeout.worker.js'
+// lane:wa-conversation END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -53,6 +57,9 @@ const pushSendWorker = createPushSendWorker()
 // lane:courier START
 const courierPollWorker = createCourierPollWorker()
 // lane:courier END
+// lane:wa-conversation START
+const conversationTimeoutWorker = createConversationTimeoutWorker()
+// lane:wa-conversation END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -177,6 +184,19 @@ if (courierEnv.COURIER_POLL_ENABLED) {
     .catch((err: Error) => console.error('[courier-poll-worker] scheduler registration failed:', err.message))
 }
 // lane:courier END
+// lane:wa-conversation START
+conversationTimeoutWorker.on('completed', (job: Job<ConversationTimeoutJob>) => {
+  console.info(`[conversation-timeout-worker] completed  job=${job.id} conversationId=${job.data.conversationId}`)
+})
+
+conversationTimeoutWorker.on('failed', (job: Job<ConversationTimeoutJob> | undefined, err: Error) => {
+  console.error(`[conversation-timeout-worker] failed    job=${job?.id} conversationId=${job?.data.conversationId} error=${err.message}`)
+})
+
+conversationTimeoutWorker.on('error', (err: Error) => {
+  console.error('[conversation-timeout-worker] worker error:', err)
+})
+// lane:wa-conversation END
 
 const shutdown = async (): Promise<void> => {
   console.info('[workers] shutting down...')
@@ -206,6 +226,9 @@ const shutdown = async (): Promise<void> => {
     // lane:public-api START
     webhookDeliveryWorker.close(),
     // lane:public-api END
+    // lane:wa-conversation START
+    conversationTimeoutWorker.close(),
+    // lane:wa-conversation END
   ])
   process.exit(0)
 }

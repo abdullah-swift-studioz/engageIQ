@@ -21,5 +21,8 @@ export {
   // lane:public-api START
   webhookDeliveryQueue,
   // lane:public-api END
+  // lane:wa-conversation START
+  conversationTimeoutQueue,
+  // lane:wa-conversation END
 } from './queues.js'
 export type { QueueName } from './queues.js'

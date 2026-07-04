@@ -6,6 +6,9 @@ import { JOURNEY_EXECUTOR } from '@engageiq/shared'
 import type { SegmentGroup } from '@engageiq/shared'
 import { evaluateProfile, buildProfileFromCustomer } from '../services/segment-evaluator.js'
 import { dispatchChannel } from '../lib/channels/dispatcher.js'
+// lane:wa-conversation START
+import { isWaitForReplyConfig, startJourneyReplyWait } from '../lib/conversations/journey-reply.js'
+// lane:wa-conversation END
 
 function delayToMs(duration: number, unit: DelayStepConfig['unit']): number {
   const multipliers = { minutes: 60_000, hours: 3_600_000, days: 86_400_000 }
@@ -81,6 +84,20 @@ export async function processJourneyJob(data: JourneyExecutorJob): Promise<void>
         }
 
         case 'ACTION': {
+          // lane:wa-conversation START — two-way "wait for reply / branch on reply" step (guide §7.2).
+          // An ACTION whose config carries a waitForReply block sends the prompt, opens a journey_reply
+          // conversation, and PARKS this enrollment; the conversation engine resumes it (execute_step for
+          // the matched branch child) on reply or timeout. Ordinary ACTION steps fall through unchanged.
+          if (isWaitForReplyConfig(step.config)) {
+            await startJourneyReplyWait({
+              merchantId: data.merchantId,
+              enrollmentId: enrollment.id,
+              customerId: enrollment.customerId,
+              stepId: step.id,
+            })
+            return
+          }
+          // lane:wa-conversation END
           const config = step.config as unknown as ActionStepConfig
           await dispatchChannel(config.channel, enrollment.customerId, config.content, data.merchantId)
           const child = await prisma.journeyStep.findFirst({

@@ -191,6 +191,24 @@ async function processInbound(messages: Array<Record<string, unknown>>): Promise
         data: { isSubscribedWhatsapp: false },
       })
     }
+    // lane:wa-conversation START — route non-STOP inbound to the two-way conversation engine (guide §7.2).
+    // Dynamic import keeps the queue-backed engine out of this route's static graph so the
+    // Channels-lane webhook unit tests (which don't mock @engageiq/queue) stay isolated.
+    else {
+      try {
+        const { dispatchInbound } = await import('../../services/conversation.service.js')
+        await dispatchInbound({
+          merchantId: customer.merchantId,
+          customerId: customer.id,
+          phone: from,
+          text: extractText(m),
+        })
+      } catch (err) {
+        // The engine must never break webhook processing — Meta always receives a 200.
+        console.error('[whatsapp-webhook] conversation dispatch error', err)
+      }
+    }
+    // lane:wa-conversation END
   }
 }
 

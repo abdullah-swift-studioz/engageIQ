@@ -54,6 +54,9 @@ import emailTemplatesRoutes from './routes/email-templates/index.js'
 import sendingDomainsRoutes from './routes/sending-domains/index.js'
 import emailTrackingRoutes from './routes/email/tracking.js'
 // lane:email END
+// lane:wa-conversation START
+import conversationsRoutes from './routes/conversations/index.js'
+// lane:wa-conversation END
 
 const app = Fastify({
   logger: {
@@ -146,6 +149,9 @@ await app.register(emailTemplatesRoutes, { prefix: '/api/v1/email-templates' })
 await app.register(sendingDomainsRoutes, { prefix: '/api/v1/sending-domains' })
 await app.register(emailTrackingRoutes, { prefix: '/email' })
 // lane:email END
+// lane:wa-conversation START
+await app.register(conversationsRoutes, { prefix: '/api/v1/conversations' })
+// lane:wa-conversation END
 
 app.get('/health', () => ({
   status: 'ok',

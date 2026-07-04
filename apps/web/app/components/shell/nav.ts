@@ -70,6 +70,9 @@ export const NAV: NavSection[] = [
       { label: 'Sending Domains', to: '/sending-domains', icon: AtSign },
       // lane:email END
       { label: 'Messages', to: '/messages', icon: Inbox },
+      // lane:wa-conversation START — two-way WhatsApp inbox (guide §7.2)
+      { label: 'Conversations', to: '/conversations', icon: MessageCircle },
+      // lane:wa-conversation END
     ],
   },
   {
