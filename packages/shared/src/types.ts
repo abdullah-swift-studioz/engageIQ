@@ -457,6 +457,14 @@ export interface MessageDispatchJob {
   // CampaignRecipient.messageId when it persists the Message. Without this, a per-recipient
   // resend makes (campaignId, customerId) ambiguous. Set by Lane B campaign sends only.
   campaignRecipientId?: string
+  // lane:email — additive optional field. When set (EMAIL channel only), the dispatch
+  // worker's EMAIL branch renders this EmailTemplate's blocks per-recipient at send time
+  // (dynamic products + conditional-by-segment resolved fresh). Absent for plain-body
+  // campaign emails and for all WhatsApp/SMS sends, which ignore it.
+  emailTemplateId?: string
+  // lane:email — optional A/B variant id (indexes into AbTest.variants Json) so the EMAIL
+  // branch can pick the variant's subject/blocks. Set by the email template A/B send path.
+  abVariantId?: string
 }
 
 // The channel-tagged payload handed to a ChannelAdapter.send(). Each channel owns its
@@ -985,3 +993,120 @@ export interface OnSiteDeliveryResponse {
 export const ONSITE_IMPRESSION_EVENT = 'onsite_impression' as const
 export const ONSITE_CONVERSION_EVENT = 'onsite_conversion' as const
 // lane:onsite END
+// lane:email START
+// ─── Email builder block schema (roadmap 6.4 / guide 7.3) ─────────────────────
+//
+// The drag-drop email builder stores its section structure as EmailTemplate.blocks
+// (Json). Both the API render engine (apps/api/src/services/email/render.ts) and the
+// Remix builder (apps/web/app/components/email/*) code against this union, so the
+// stored shape is a single source of truth. String-literal unions only — @engageiq/shared
+// stays a dependency-free leaf.
+
+export type EmailBlockAlign = 'left' | 'center' | 'right'
+
+// Where a dynamic product block pulls its live products from at render time.
+//   top_sellers  — merchant's best-selling products (analytics-ranked)
+//   recommended  — per-customer recommendations (ML Recommendation cache)
+//   viewed       — products the customer recently viewed (falls back to top_sellers)
+//   manual       — an explicit, merchant-picked productIds list
+export type EmailProductSource = 'top_sellers' | 'recommended' | 'viewed' | 'manual'
+
+export interface EmailTextBlock {
+  id: string
+  type: 'text'
+  // Sanitized rich-text HTML (may contain {{token}} personalization placeholders).
+  html: string
+  align?: EmailBlockAlign
+}
+
+export interface EmailImageBlock {
+  id: string
+  type: 'image'
+  src: string
+  alt?: string
+  href?: string
+  // Max render width in px (images are capped to the 600px email body width).
+  width?: number
+  align?: EmailBlockAlign
+}
+
+export interface EmailButtonBlock {
+  id: string
+  type: 'button'
+  text: string
+  href: string
+  align?: EmailBlockAlign
+}
+
+export interface EmailDividerBlock {
+  id: string
+  type: 'divider'
+}
+
+export interface EmailSpacerBlock {
+  id: string
+  type: 'spacer'
+  // Vertical space in px.
+  height: number
+}
+
+export interface EmailDynamicProductBlock {
+  id: string
+  type: 'dynamic-product'
+  source: EmailProductSource
+  // How many products to render (1–12).
+  limit: number
+  // Grid columns (1–4); defaults to a sensible value in the renderer.
+  columns?: number
+  heading?: string
+  // Only for source === 'manual': the explicit product ids to render.
+  productIds?: string[]
+}
+
+// Conditional-by-segment block: its child blocks render only when the recipient is a
+// member of `segmentId`. One template, personalized by segment (guide 7.3).
+export interface EmailConditionalBlock {
+  id: string
+  type: 'conditional'
+  segmentId: string
+  // Human label for the builder (e.g. "Champions only"); not rendered.
+  label?: string
+  blocks: EmailBlock[]
+}
+
+export type EmailBlock =
+  | EmailTextBlock
+  | EmailImageBlock
+  | EmailButtonBlock
+  | EmailDividerBlock
+  | EmailSpacerBlock
+  | EmailDynamicProductBlock
+  | EmailConditionalBlock
+
+// A product resolved for a dynamic-product block at render time. Sourced from the
+// Postgres Product table (never ClickHouse — this is catalog data).
+export interface EmailRenderProduct {
+  id: string
+  title: string
+  handle?: string | null
+  imageUrl?: string | null
+  price?: string | null // formatted, e.g. "PKR 2,499"
+  url?: string | null // storefront product URL
+}
+
+// Everything the render engine needs to turn blocks → a personalized HTML email for one
+// recipient. Assembled per-recipient in apps/api (dynamic products + segment membership
+// resolved fresh at send time). Kept as loose records so shared imports no Prisma types.
+export interface EmailRenderContext {
+  customer: Record<string, unknown>
+  merchant: Record<string, unknown>
+  order?: Record<string, unknown>
+  // Segment ids the recipient currently belongs to — drives conditional blocks.
+  segmentIds: string[]
+  // Resolved product lists keyed by dynamic-product block id.
+  productsByBlockId: Record<string, EmailRenderProduct[]>
+  // Absolute unsubscribe + open-tracking URLs the renderer injects.
+  unsubscribeUrl?: string
+  openTrackingUrl?: string
+}
+// lane:email END

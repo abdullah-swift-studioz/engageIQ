@@ -126,6 +126,16 @@ const schema = z.object({
   // Public base URL for reconstructing the signed URL when verifying Twilio signatures behind a proxy.
   PUBLIC_BASE_URL: z.string().url().optional(),
   // lane:sms END
+  // lane:email START
+  // Display name on the From header, e.g. "Acme Store <no-reply@acme.com>".
+  // The address itself comes from AWS_SES_FROM_EMAIL (or a verified SendingDomain).
+  EMAIL_FROM_NAME: z.string().default('EngageIQ'),
+  // Public base URL for email open/click tracking + unsubscribe links. Falls back to
+  // SHOPIFY_APP_URL-style host in prod; localhost for dev.
+  EMAIL_TRACKING_BASE_URL: z.string().url().default('http://localhost:4002'),
+  // Resend API key — optional fallback sender when AWS SES creds are absent (guide 7.3).
+  RESEND_API_KEY: z.string().optional(),
+  // lane:email END
 })
 
 const result = schema.safeParse(process.env)

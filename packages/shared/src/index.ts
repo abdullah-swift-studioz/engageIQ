@@ -81,3 +81,12 @@ export type {
   OnSiteDeliveryResponse,
 } from './types.js'
 // lane:onsite END
+// lane:email START
+export type {
+  EmailBlockAlign, EmailProductSource,
+  EmailTextBlock, EmailImageBlock, EmailButtonBlock,
+  EmailDividerBlock, EmailSpacerBlock,
+  EmailDynamicProductBlock, EmailConditionalBlock,
+  EmailBlock, EmailRenderProduct, EmailRenderContext,
+} from './types.js'
+// lane:email END

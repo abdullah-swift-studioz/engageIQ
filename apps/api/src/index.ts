@@ -49,6 +49,11 @@ import onsiteRoutes from './routes/onsite/index.js'
 // lane:sms START
 import smsWebhookRoutes from './routes/webhooks/sms.js'
 // lane:sms END
+// lane:email START
+import emailTemplatesRoutes from './routes/email-templates/index.js'
+import sendingDomainsRoutes from './routes/sending-domains/index.js'
+import emailTrackingRoutes from './routes/email/tracking.js'
+// lane:email END
 
 const app = Fastify({
   logger: {
@@ -136,6 +141,11 @@ await app.register(onsiteRoutes, { prefix: '/api/v1/onsite' })
 // /webhooks prefix with the WhatsApp webhook; distinct path so no route collision.
 await app.register(smsWebhookRoutes, { prefix: '/webhooks' })
 // lane:sms END
+// lane:email START
+await app.register(emailTemplatesRoutes, { prefix: '/api/v1/email-templates' })
+await app.register(sendingDomainsRoutes, { prefix: '/api/v1/sending-domains' })
+await app.register(emailTrackingRoutes, { prefix: '/email' })
+// lane:email END
 
 app.get('/health', () => ({
   status: 'ok',

@@ -12,6 +12,10 @@ import {
   BarChart,
   AppWindow,
   Sliders,
+  // lane:email START
+  Mail,
+  AtSign,
+  // lane:email END
 } from '../ui/icons'
 
 export interface NavLeaf {
@@ -61,6 +65,10 @@ export const NAV: NavSection[] = [
     title: 'Messaging',
     items: [
       { label: 'WhatsApp Templates', to: '/whatsapp-templates', icon: MessageCircle },
+      // lane:email START
+      { label: 'Email Templates', to: '/email-templates', icon: Mail },
+      { label: 'Sending Domains', to: '/sending-domains', icon: AtSign },
+      // lane:email END
       { label: 'Messages', to: '/messages', icon: Inbox },
     ],
   },
