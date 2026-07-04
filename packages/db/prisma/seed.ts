@@ -1,6 +1,9 @@
 import { PrismaClient, Role, Plan, Channel, CampaignStatus, RfmSegment } from '@prisma/client'
 import { randomBytes } from 'crypto'
 import bcrypt from 'bcryptjs'
+// lane:flows START — pre-built flow library seeder (system FlowTemplate rows, guide §7.6)
+import { seedFlowTemplates } from './flow-templates.seed.js'
+// lane:flows END
 
 const prisma = new PrismaClient()
 
@@ -273,6 +276,10 @@ async function main() {
     },
   })
   console.log(`✓ Campaign: Eid Mubarak — Champions Offer`)
+
+  // lane:flows START — system-wide pre-built flow library (not merchant-scoped)
+  await seedFlowTemplates(prisma)
+  // lane:flows END
 
   console.log('\n✅ Seed complete.')
   console.log(`\nTest credentials:`)

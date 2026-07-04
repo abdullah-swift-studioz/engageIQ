@@ -66,6 +66,9 @@ import clustersRoutes from './routes/clusters/index.js'
 import agencyRoutes from './routes/agency/index.js'
 import { actingMerchantPreHandler } from './services/agency/index.js'
 // lane:rbac END
+// lane:flows START
+import flowLibraryRoutes from './routes/flow-library/index.js'
+// lane:flows END
 
 const app = Fastify({
   logger: {
@@ -174,6 +177,9 @@ await app.register(clustersRoutes, { prefix: '/api/v1/clusters' })
 // settingsRoutes registered above (public-api); the merged plugin serves team/roles too.
 await app.register(agencyRoutes, { prefix: '/api/v1/agency' })
 // lane:rbac END
+// lane:flows START
+await app.register(flowLibraryRoutes, { prefix: '/api/v1/flow-library' })
+// lane:flows END
 
 app.get('/health', () => ({
   status: 'ok',

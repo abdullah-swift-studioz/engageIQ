@@ -109,3 +109,14 @@ export type {
   AgencyClientReportRow, AgencyClientReport,
 } from './types.js'
 // lane:rbac END
+// lane:flows START
+export { FLOW_CATEGORIES } from './types.js'
+export type {
+  FlowCategory,
+  FlowTemplateNode,
+  FlowTemplateTrigger,
+  FlowTemplateGraph,
+  FlowTemplateDTO,
+  FlowInstantiationResult,
+} from './types.js'
+// lane:flows END

@@ -58,7 +58,7 @@ export const NAV: NavSection[] = [
     items: [
       { label: 'Campaigns', to: '/campaigns', icon: Megaphone },
       { label: 'Journeys', to: '/journeys', icon: Route },
-      { label: 'Flows', to: '/flows', icon: Workflow, soon: true },
+      { label: 'Flows', to: '/flows', icon: Workflow }, // lane:flows — shipped
     ],
   },
   {

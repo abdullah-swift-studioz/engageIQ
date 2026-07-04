@@ -1239,3 +1239,74 @@ export interface AgencyClientReport {
   rows: AgencyClientReportRow[]
 }
 // lane:rbac END
+
+// lane:flows START — Pre-Built Flow Library (guide §7.6)
+//
+// A FlowTemplate is a system-owned (not merchant-scoped) blueprint for a journey. Its
+// `graphJson` carries a trigger definition plus a flat node list that mirrors the visual
+// builder's GraphNode shape (apps/api/src/routes/journeys/schema.ts). "Use this flow"
+// creates a DRAFT Journey from `trigger` and deep-copies `nodes` into journey_steps via the
+// existing saveJourneyGraph path — so every instantiated flow is immediately runnable by the
+// live journey executor and editable in the existing builder, with zero engine changes.
+
+export type FlowCategory =
+  | 'abandoned_cart'
+  | 'welcome'
+  | 'post_purchase'
+  | 'win_back'
+  | 'loyalty_vip'
+  | 'cod'
+
+export const FLOW_CATEGORIES: readonly FlowCategory[] = [
+  'abandoned_cart',
+  'welcome',
+  'post_purchase',
+  'win_back',
+  'loyalty_vip',
+  'cod',
+] as const
+
+// One node in a FlowTemplate graph. Identical in shape to the builder's GraphNode so the
+// graph round-trips into the self-referential journey_steps tree on instantiation.
+export interface FlowTemplateNode {
+  tempId: string
+  stepType: 'TRIGGER' | 'ACTION' | 'CONDITION' | 'DELAY' | 'AB_SPLIT'
+  label: string | null
+  config: Record<string, unknown>
+  positionX: number
+  positionY: number
+  parentTempId: string | null
+}
+
+// Journey-level trigger definition (lives on the Journey row, not a step).
+export interface FlowTemplateTrigger {
+  triggerType: JourneyTriggerType
+  triggerConfig: Record<string, unknown>
+  reEntryRule: 'ALLOW' | 'DISALLOW' | 'RE_ENROLL_AFTER_EXIT'
+  exitTrigger: 'order_placed' | 'segment_entered' | 'custom_event' | null
+}
+
+export interface FlowTemplateGraph {
+  trigger: FlowTemplateTrigger
+  nodes: FlowTemplateNode[]
+}
+
+// API DTO for a template in the browse list / preview (system table, safe to expose as-is).
+export interface FlowTemplateDTO {
+  key: string
+  name: string
+  category: FlowCategory
+  description: string
+  channels: ChannelName[]
+  icon: string | null
+  graph: FlowTemplateGraph
+}
+
+// Result of instantiating a template into a real merchant Journey.
+export interface FlowInstantiationResult {
+  journeyId: string
+  name: string
+  sourceFlowTemplateKey: string
+  stepCount: number
+}
+// lane:flows END
