@@ -51,3 +51,10 @@ export type {
   WebhookDeliveryJob,
 } from './types.js'
 // freeze-v2 END
+// lane:copywriter START
+export type {
+  CopyPurpose, CopyTone, CopyLanguage,
+  AiCopyContext, AiGenerateRequestDto, AiCopyVariant, AiGenerationUsage, AiGenerateResultDto,
+  SubjectPredictRequestDto, SubjectFactorImpact, SubjectPredictFactor, SubjectPredictResultDto,
+} from './types.js'
+// lane:copywriter END
