@@ -1,8 +1,27 @@
 # EngageIQ — Project Context
 
-> Last updated: 2026-06-28
-> Current phase: **Wave-1 integration COMPLETE** (commit `a0f3d3c`, on `main`, pushed) — all 5 parallel lanes merged
-> Next action: Wave 2 per ORCHESTRATION.md §12 (Lane F Platform, 6.4 Email/COD, 6.5 on-site + flow library). FIRST add a boot smoke-test to `scripts/preflight.sh` (see deferred list) so the gate catches boot failures before the next wave.
+> Last updated: 2026-07-04
+> Current phase: **Wave-2A integration COMPLETE** (commit `067d8f1`, on `main`, pushed) — all 10 Wave-2A lanes merged
+> Next action: Manual boot/browser verification of the newly merged channels + settings (integrator cannot boot). Then Wave 2B / remaining roadmap. STILL OUTSTANDING from Wave 1: add a boot smoke-test to `scripts/preflight.sh` so the gate catches boot failures (it still only builds/typechecks/tests, never boots the server).
+
+## Wave 2A Integration (2026-07-04) — 10 lanes merged to main
+
+All ten Wave-2A lanes are merged into `main` via `git merge --no-ff` (NOT rebase — the lane worktrees keep these branches checked out, so rebase fails). Each merge was gated by `scripts/preflight.sh` (build + typecheck + full api test suite); the trailing `prisma migrate status` step fails on `DATABASE_URL` by design (no root `.env` at the integration cwd) and is treated as expected. Final gate state: **preflight green — build 6/6, typecheck 8/8, 449 api tests pass, 0 conflict markers.** Server boot + browser checks are Abdullah's (the integrator cannot boot).
+
+**Merge order & commits:** copywriter `ea392b9` → push `d2dc8f6` (both pre-merged; push left committed conflict markers, fixed in `b517d2e`) → courier `c27f134` → public-api `a40afda` → onsite `90ab440` → sms `d593ccf` → email `a47d637` → wa-conversation `745bcc7` → ai-wiring `0c8ba92` → rbac `067d8f1`.
+
+**Merged clean (append-block `// lane:<name>` conflicts, resolved keep-both):** courier, sms, email, wa-conversation, ai-wiring — plus the mechanical shared-file conflicts on every lane (`env.ts`, `index.ts`, `types.ts`, `worker.ts`, `queues.ts`, barrels).
+
+**Needed non-mechanical conflict resolution:**
+- **onsite / email / rbac nav.ts** — lanes shipped routes that had been `soon: true` placeholders on an older main; blind keep-both would duplicate nav items. Resolved by keeping each lane's *shipped* entry (On-Site, Settings & RBAC) + public-api's API&Webhooks, dropping stale placeholders.
+- **sms + email message-dispatch.worker.ts** — both added a real channel handler (PUSH/SMS/EMAIL) *and* edited the shared "stub channels" comment. Kept all handler blocks; collapsed the duplicated comment into one accurate fallback (all of WHATSAPP/SMS/EMAIL/PUSH now have live handlers).
+- **rbac settings/ (add/add)** — public-api and rbac both created `settings/{index,controller,schema}.ts` with complementary content (API-keys/webhooks vs team/roles). Hand-merged into one plugin: per-route `api_keys:manage` gate (so it does not over-gate team/roles), combined controller (git had pulled the shared trailing `}` out of the conflict, leaving each side's last handler unclosed — added the missing brace), combined schemas. Removed the duplicate `settingsRoutes` import+registration in the route registry (kept rbac's unique `agencyRoutes` + `actingMerchantPreHandler`).
+
+**Integration fixes committed (real preflight failures, resolved with Abdullah's approval):**
+- `b0a6dbe` / `cb65e1d` — test isolation: public-api's webhook-emit wiring and onsite's targeting test pulled `@engageiq/shared`/`@engageiq/db` (→ `env.ts` `process.exit` with no test env). Mocked in the affected unit tests.
+- `3ea065b` — **`apps/api/vitest.setup.ts`** (wired via `setupFiles` in `vitest.config.ts`) seeds placeholder `DATABASE_URL` / `JWT_SECRET` / `JWT_REFRESH_SECRET` before modules load, so unit tests run in the env-less integration environment without tripping `env.ts`. This is the systemic fix for the whole class; it also pre-empted the same failure in wa-conversation/ai-wiring/rbac. Does not affect the real `prisma migrate status` step.
+
+**New customer-facing surface now on main:** web push, AI copywriter, courier integrations (PostEx/Leopards/TCS/M&P) + status polling, public REST API + HMAC outbound webhooks, on-site personalization, real SMS (Twilio↔PK failover) and Email (SES/Resend) channels, two-way WhatsApp conversation engine, ML→journey/webhook wiring, and RBAC + agency accounts. Full per-lane detail in each lane's `updates/` file.
 
 ## Wave 1 Integration (2026-06-28) — 5 lanes merged to main
 
@@ -97,8 +116,8 @@ Phase 2 — Shopify Integration & Data Ingestion ✓
 ### Wave-1 deferred follow-ups (from integration 2026-06-28)
 - **Add a boot smoke-test to `scripts/preflight.sh`** (start server → curl `/health` → assert 200 → stop). The gate passed through THREE separate pre-existing boot failures (rate-limit, jwt, sync-void signatures) because it never boots the server. Highest-value gap to close before Wave 2.
 - **Fastify 5 migration (Phase 10)** — `@fastify/jwt` is pinned `^8` and `@fastify/rate-limit` `^9` for Fastify-4 compat; both can return to v10 after the framework upgrade.
-- **SMS half of 6.3** — SMS adapter still a stub behind `ChannelAdapter`.
-- **Email (6.4)** — not built; extends the Channels lane.
+- ~~**SMS half of 6.3**~~ **RESOLVED 2026-07-04** (lane/sms) — real SMS send path (Twilio↔PK failover) behind `ChannelAdapter`, wired into message-dispatch.
+- ~~**Email (6.4)**~~ **RESOLVED 2026-07-04** (lane/email) — SES/Resend adapter, block builder, A/B, sending-domain verification; EMAIL is a live channel in message-dispatch.
 - **Sync fake-order scoring call in `order.processor.ts`** — ML fake-order score is batch-only; wire a synchronous call at order ingestion for real-time COD gating.
 - **Discovered-cluster → Segment promotion** — ML 5.3 surfaces clusters (`DiscoveredSegment`) but one-click promotion to a real Segment is not wired.
 - **`refund.processor.ts` line-item population** — `Order.returns_data` exists but isn't populated, so `Product.returnRate` stays uncomputable.
