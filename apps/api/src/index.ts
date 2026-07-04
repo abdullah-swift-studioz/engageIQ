@@ -60,6 +60,12 @@ import conversationsRoutes from './routes/conversations/index.js'
 // lane:ai-wiring START
 import clustersRoutes from './routes/clusters/index.js'
 // lane:ai-wiring END
+// lane:rbac START
+// settingsRoutes is imported above (public-api); the merged settings plugin serves both the
+// API-keys/webhooks routes and the team/roles routes, so it is imported and registered once.
+import agencyRoutes from './routes/agency/index.js'
+import { actingMerchantPreHandler } from './services/agency/index.js'
+// lane:rbac END
 
 const app = Fastify({
   logger: {
@@ -104,6 +110,12 @@ await app.register(rateLimit, {
 await app.register(jwtPlugin)
 await app.register(authenticatePlugin)
 await app.register(apiKeyPlugin)
+// lane:rbac START — global acting-merchant re-scope for agency account switching (guide §9.4).
+// Registered BEFORE the route groups so it applies to all of them. Runs as a preHandler
+// (after every group's authenticate onRequest hook), gated: no-op unless an agency user
+// sends a verified x-acting-merchant-id header. See services/agency/acting-merchant.hook.ts.
+app.addHook('preHandler', actingMerchantPreHandler)
+// lane:rbac END
 await app.register(authRoutes, { prefix: '/auth' })
 await app.register(shopifyRoutes, { prefix: '/shopify' })
 await app.register(backfillRoutes, { prefix: '/backfill' })
@@ -158,6 +170,10 @@ await app.register(conversationsRoutes, { prefix: '/api/v1/conversations' })
 // lane:ai-wiring START
 await app.register(clustersRoutes, { prefix: '/api/v1/clusters' })
 // lane:ai-wiring END
+// lane:rbac START
+// settingsRoutes registered above (public-api); the merged plugin serves team/roles too.
+await app.register(agencyRoutes, { prefix: '/api/v1/agency' })
+// lane:rbac END
 
 app.get('/health', () => ({
   status: 'ok',

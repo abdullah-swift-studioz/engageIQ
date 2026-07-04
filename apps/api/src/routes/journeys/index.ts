@@ -11,9 +11,14 @@ import {
   archiveJourneyHandler,
   listEnrollmentsHandler,
 } from './controller.js'
+// lane:rbac
+import { requirePermissionByMethod } from '../../services/rbac/index.js'
 
 const journeysRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticate)
+  // lane:rbac START
+  fastify.addHook('onRequest', requirePermissionByMethod({ read: 'journeys:read', write: 'journeys:write' }))
+  // lane:rbac END
 
   fastify.post('/', createJourneyHandler)
   fastify.get('/', listJourneysHandler)

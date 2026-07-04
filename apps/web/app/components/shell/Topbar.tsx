@@ -14,6 +14,7 @@ import {
 } from '../ui/DropdownMenu'
 import { Menu, Search, Bell, ChevronDown } from '../ui/icons'
 import { Wordmark } from './Logomark'
+import { AgencySwitcher } from './AgencySwitcher'
 
 const iconButton =
   'inline-flex size-9 items-center justify-center rounded-md text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-950 focus-visible:ring-offset-2'
@@ -49,7 +50,10 @@ export function Topbar({ onMenuClick, navOpen }: { onMenuClick: () => void; navO
         />
       </form>
 
-      <div className="ml-auto flex items-center gap-1">
+      <div className="ml-auto flex items-center gap-2">
+        {/* Agency account switcher — renders only for agency users. */}
+        <AgencySwitcher />
+
         <Tooltip content="Notifications">
           <button type="button" className={iconButton} aria-label="Notifications">
             <Bell className="size-[18px]" />

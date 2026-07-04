@@ -100,3 +100,12 @@ export type {
   ConversationTimeoutJob,
 } from './types.js'
 // lane:wa-conversation END
+// lane:rbac START
+export { ACTING_MERCHANT_HEADER } from './types.js'
+export type {
+  AccessibleMerchant, AgencyContext,
+  TeamMember, CreateTeamMemberInput, UpdateTeamMemberInput,
+  AgencyAssignmentView,
+  AgencyClientReportRow, AgencyClientReport,
+} from './types.js'
+// lane:rbac END

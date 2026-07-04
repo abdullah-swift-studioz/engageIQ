@@ -7,9 +7,14 @@ import {
   deleteSegmentHandler,
   evaluateSegmentHandler,
 } from './controller.js'
+// lane:rbac
+import { requirePermissionByMethod } from '../../services/rbac/index.js'
 
 const segmentsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.addHook('onRequest', fastify.authenticate)
+  // lane:rbac START
+  fastify.addHook('onRequest', requirePermissionByMethod({ read: 'segments:read', write: 'segments:write' }))
+  // lane:rbac END
 
   fastify.post('/', createSegmentHandler)
   fastify.get('/', listSegmentsHandler)

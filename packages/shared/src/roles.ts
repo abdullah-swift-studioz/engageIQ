@@ -9,6 +9,8 @@ export type Permission =
   | 'journeys:read'
   | 'journeys:write'
   | 'customers:read'
+  // lane:rbac — customers mutations (merge, edit) are a write; Analyst stays read-only
+  | 'customers:write'
   | 'api_keys:manage'
   | 'billing:manage'
   | 'users:manage'
@@ -23,6 +25,7 @@ const ALL_PERMISSIONS: Set<Permission> = new Set([
   'journeys:read',
   'journeys:write',
   'customers:read',
+  'customers:write',
   'api_keys:manage',
   'billing:manage',
   'users:manage',
@@ -38,6 +41,7 @@ const ALL_EXCEPT_BILLING: Set<Permission> = new Set([
   'journeys:read',
   'journeys:write',
   'customers:read',
+  'customers:write',
   'api_keys:manage',
   'users:manage',
 ])
@@ -50,6 +54,7 @@ const MARKETER_PERMISSIONS: Set<Permission> = new Set([
   'journeys:read',
   'journeys:write',
   'customers:read',
+  'customers:write',
   'analytics:read',
 ])
 
