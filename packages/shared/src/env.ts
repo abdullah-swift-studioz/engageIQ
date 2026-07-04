@@ -112,6 +112,20 @@ const schema = z.object({
   // Per-request timeout (ms) for delivering an outbound webhook POST before it counts as failed.
   WEBHOOK_DELIVERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
   // lane:public-api END
+  // lane:sms START
+  // Which SMS provider the adapter tries first; the other is the failover.
+  SMS_PRIMARY_PROVIDER: z.enum(['twilio', 'pk-aggregator']).default('twilio'),
+  // Twilio Messaging Service SID (sender pool) — used instead of TWILIO_FROM_NUMBER when set.
+  TWILIO_MESSAGING_SERVICE_SID: z.string().optional(),
+  // Public URL Twilio POSTs delivery-status callbacks to (e.g. https://api.example.com/webhooks/sms).
+  TWILIO_STATUS_CALLBACK_URL: z.string().url().optional(),
+  // Local PK SMS aggregator endpoint (vendor JSON send API). Vendor TBD (ORCHESTRATION §13.5).
+  PK_SMS_API_URL: z.string().url().optional(),
+  // Sender id / mask for the PK aggregator (optional; some gateways set it account-side).
+  PK_SMS_SENDER_ID: z.string().optional(),
+  // Public base URL for reconstructing the signed URL when verifying Twilio signatures behind a proxy.
+  PUBLIC_BASE_URL: z.string().url().optional(),
+  // lane:sms END
 })
 
 const result = schema.safeParse(process.env)

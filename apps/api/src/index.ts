@@ -46,6 +46,9 @@ import publicApiRoutes from './routes/public/index.js'
 // lane:onsite START
 import onsiteRoutes from './routes/onsite/index.js'
 // lane:onsite END
+// lane:sms START
+import smsWebhookRoutes from './routes/webhooks/sms.js'
+// lane:sms END
 
 const app = Fastify({
   logger: {
@@ -128,6 +131,11 @@ await app.register(publicApiRoutes, { prefix: '/api/v1/public' })
 // lane:onsite START
 await app.register(onsiteRoutes, { prefix: '/api/v1/onsite' })
 // lane:onsite END
+// lane:sms START
+// Twilio delivery-status + inbound STOP webhook (POST /webhooks/sms). Shares the
+// /webhooks prefix with the WhatsApp webhook; distinct path so no route collision.
+await app.register(smsWebhookRoutes, { prefix: '/webhooks' })
+// lane:sms END
 
 app.get('/health', () => ({
   status: 'ok',
