@@ -16,6 +16,9 @@ import {
   Mail,
   AtSign,
   // lane:email END
+  // lane:cod-verify START
+  CheckCircle,
+  // lane:cod-verify END
 } from '../ui/icons'
 
 export interface NavLeaf {
@@ -100,6 +103,13 @@ export const NAV: NavSection[] = [
     items: [{ label: 'Shipments', to: '/shipments', icon: Route }],
   },
   // lane:courier END
+  // lane:cod-verify START
+  // COD verification queue + analytics (guide §7.4). Own section so it appends cleanly at the end.
+  {
+    title: 'COD',
+    items: [{ label: 'COD Verification', to: '/verifications', icon: CheckCircle }],
+  },
+  // lane:cod-verify END
   {
     title: 'Configure',
     items: [

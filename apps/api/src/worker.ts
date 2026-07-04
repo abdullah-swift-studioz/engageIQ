@@ -37,6 +37,11 @@ import { createWebhookDeliveryWorker } from './workers/webhook-delivery.worker.j
 import type { ConversationTimeoutJob } from '@engageiq/shared'
 import { createConversationTimeoutWorker } from './workers/conversation-timeout.worker.js'
 // lane:wa-conversation END
+// lane:cod-verify START
+import type { VerificationJob, CodVerificationScanJob } from '@engageiq/shared'
+import { createCodVerificationWorker } from './workers/cod-verification.worker.js'
+import { registerScanScheduler } from './services/cod-verification/queue.js'
+// lane:cod-verify END
 
 const webhookWorker = createWebhookWorker()
 const backfillWorker = createBackfillWorker()
@@ -60,6 +65,9 @@ const courierPollWorker = createCourierPollWorker()
 // lane:wa-conversation START
 const conversationTimeoutWorker = createConversationTimeoutWorker()
 // lane:wa-conversation END
+// lane:cod-verify START
+const codVerificationWorker = createCodVerificationWorker()
+// lane:cod-verify END
 
 webhookWorker.on('completed', (job: Job<ShopifyWebhookJob>) => {
   console.info(`[webhook-worker] completed  job=${job.id} topic=${job.name}`)
@@ -229,6 +237,9 @@ const shutdown = async (): Promise<void> => {
     // lane:wa-conversation START
     conversationTimeoutWorker.close(),
     // lane:wa-conversation END
+    // lane:cod-verify START
+    codVerificationWorker.close(),
+    // lane:cod-verify END
   ])
   process.exit(0)
 }
@@ -275,3 +286,23 @@ webhookDeliveryWorker.on('error', (err: Error) => {
   console.error('[webhook-delivery-worker] worker error:', err)
 })
 // lane:public-api END
+
+// lane:cod-verify START
+codVerificationWorker.on('completed', (job: Job<VerificationJob | CodVerificationScanJob>) => {
+  console.info(`[cod-verification-worker] completed  job=${job.id} type=${job.data.type}`)
+})
+
+codVerificationWorker.on('failed', (job: Job<VerificationJob | CodVerificationScanJob> | undefined, err: Error) => {
+  console.error(`[cod-verification-worker] failed    job=${job?.id} type=${job?.data.type} error=${err.message}`)
+})
+
+codVerificationWorker.on('error', (err: Error) => {
+  console.error('[cod-verification-worker] worker error:', err)
+})
+
+// The repeatable scan sweep is the decoupled entry point: it picks up orders the fake-order gate
+// flagged PENDING_VERIFICATION and enrolls them. Registered on every worker boot (repeat key de-dupes).
+registerScanScheduler()
+  .then(() => console.info('[cod-verification-worker] scan scheduler registered (every 60s)'))
+  .catch((err: Error) => console.error('[cod-verification-worker] scan scheduler registration failed:', err.message))
+// lane:cod-verify END

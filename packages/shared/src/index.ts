@@ -109,3 +109,15 @@ export type {
   AgencyClientReportRow, AgencyClientReport,
 } from './types.js'
 // lane:rbac END
+// lane:cod-verify START
+// NOTE: COD_VERIFICATION, VerificationChannelName, VerificationJob are exported by the
+// freeze-v2 block above — this lane only exports the pieces it adds.
+export type {
+  CodVerificationScanJob,
+  VerificationDecision,
+  CodVerificationAttemptConfig,
+  CodVerificationConfig,
+  VerificationChannelStats,
+  VerificationStats,
+} from './types.js'
+// lane:cod-verify END

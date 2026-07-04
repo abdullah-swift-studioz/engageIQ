@@ -88,6 +88,17 @@ export const conversationTimeoutQueue = new Queue('conversation-timeout', {
   defaultJobOptions,
 })
 // lane:wa-conversation END
+// lane:cod-verify START
+// COD verification escalation driver (roadmap 6.4 / guide §7.4). Carries the whole flow:
+// a repeatable `scan` picks up PENDING_VERIFICATION orders; `start`/`attempt`/`finalize`
+// jobs are delayed to fire at each escalation offset. All jobs are idempotent (guarded on
+// CodOrder.verificationStatus + a deterministic jobId per order+attempt), so the default
+// retry/backoff is safe. removeOnComplete keeps the queue small under steady enrollment.
+export const codVerificationQueue = new Queue('cod-verification', {
+  connection: redisConnection,
+  defaultJobOptions,
+})
+// lane:cod-verify END
 
 export type QueueName =
   | 'webhook-ingestion'
@@ -116,3 +127,6 @@ export type QueueName =
   // lane:wa-conversation START
   | 'conversation-timeout'
 // lane:wa-conversation END
+  // lane:cod-verify START
+  | 'cod-verification'
+// lane:cod-verify END

@@ -1239,3 +1239,82 @@ export interface AgencyClientReport {
   rows: AgencyClientReportRow[]
 }
 // lane:rbac END
+// lane:cod-verify START
+// ── COD Verification Flows (roadmap 6.4 / guide §7.4) ────────────────────────
+// The automated flow that contacts a customer to confirm a COD order flagged for
+// verification (verificationStatus=PENDING_VERIFICATION, set by the fake-order gate).
+//
+// The CORE job contract is frozen ABOVE in the freeze-v2 block: `COD_VERIFICATION`,
+// `VerificationChannelName` (WHATSAPP | SMS | IVR), and `VerificationJob`
+// (start { channel } → reminder { attemptNumber } → timeout). This lane USES those and
+// only adds the pieces the freeze did not reserve: the repeatable scan job, the merchant
+// config shape, the reply-decision alias, and the analytics DTOs. String-literal unions
+// only — @engageiq/shared stays a dependency-free leaf (no @prisma/client).
+
+// The repeatable sweep job on the cod-verification queue. Distinct `type` from the frozen
+// VerificationJob union, so the worker discriminates cleanly on `VerificationJob | CodVerificationScanJob`.
+// Finds PENDING_VERIFICATION COD orders with no attempts yet and enqueues one `start` each —
+// the decoupled entry point (the fake-order gate is off-limits, so we poll for its output).
+export interface CodVerificationScanJob {
+  type: 'scan'
+}
+
+// The classified customer decision from a verification reply (WhatsApp) or IVR digit.
+// Mirrors the conversation engine's classifyVerificationReply output.
+export type VerificationDecision = 'CONFIRM' | 'CANCEL' | 'UNKNOWN'
+
+// One escalation attempt: sent on `channel` at `delayMinutes` measured as an ABSOLUTE
+// offset from when the order was enrolled (t=0). The guide's example ladder is
+// 15min WhatsApp → 2h WhatsApp reminder → 4h escalate-channel.
+export interface CodVerificationAttemptConfig {
+  delayMinutes: number
+  channel: VerificationChannelName
+}
+
+// Per-merchant COD verification config, stored on MerchantSettings.codVerification (Json).
+// Resolved with defaults by resolveCodVerificationConfig() — never trust the raw Json shape.
+export interface CodVerificationConfig {
+  // Master switch. When false, the scan never enrolls new orders.
+  enabled: boolean
+  // Ordered escalation ladder (absolute offsets from enrollment). At least one attempt.
+  attempts: CodVerificationAttemptConfig[]
+  // Absolute offset (from enrollment) at which an unconfirmed order is finalized.
+  autoCancelDelayMinutes: number
+  // true → finalize sets verificationStatus=AUTO_CANCELLED. false → leave PENDING_VERIFICATION
+  // for manual agent review (the order still shows in the queue, just not auto-cancelled).
+  autoCancel: boolean
+  // Optional message-body template for the prompt. Supports {{orderNumber}} {{amount}}
+  // {{product}} {{firstName}} tokens. Absent → a sensible bilingual default is used.
+  promptTemplate?: string
+  // Optional approved Meta WhatsApp template id used for the (business-initiated) prompt.
+  // Recommended for production so the send lands outside the 24h service window.
+  whatsappTemplateId?: string
+}
+
+// Per-channel row in the verification analytics breakdown.
+export interface VerificationChannelStats {
+  channel: VerificationChannelName
+  attempts: number
+  confirmed: number
+  cancelled: number
+  noResponse: number
+  failed: number
+}
+
+// The verification analytics payload (guide §7.4 "Verification analytics").
+export interface VerificationStats {
+  // COD orders that have entered verification (PENDING/VERIFIED/AUTO_CANCELLED via a flow).
+  totalInVerification: number
+  pending: number
+  verified: number
+  autoCancelled: number
+  // Rates over orders that reached a terminal decision (verified + autoCancelled).
+  confirmRate: number
+  cancelRate: number
+  noResponseRate: number
+  responseRate: number
+  // Estimated logistics cost avoided: sum of auto-cancelled COD order amounts (PKR string).
+  revenueSaved: string
+  byChannel: VerificationChannelStats[]
+}
+// lane:cod-verify END
