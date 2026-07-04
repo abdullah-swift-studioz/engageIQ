@@ -30,11 +30,23 @@ export async function resolveVerificationReply(
 
   await closeConversation(convo.id)
 
-  // SEAM → COD verify lane. Replace this log with a call into the COD service once that lane lands.
-  console.info(
-    `[wa-conversation] verification reply resolved decision=${decision} ` +
-      `contextId=${convo.contextId ?? 'none'} conversationId=${convo.id} merchantId=${convo.merchantId}`,
-  )
+  // lane:cod-verify START — the COD verify lane now consumes this seam. `contextId` is the CodOrder id
+  // set when the verification conversation was armed. Applying the decision is idempotent (a no-op once
+  // the order has left PENDING_VERIFICATION), so a late/duplicate reply can never re-decide an order.
+  // Dynamic import keeps the queue-/prisma-backed service out of the wa-conversation webhook unit tests'
+  // static import graph (which mocks this module wholesale).
+  if (convo.contextId) {
+    const { applyVerificationDecision } = await import(
+      '../../services/cod-verification/verification.service.js'
+    )
+    await applyVerificationDecision({
+      merchantId: convo.merchantId,
+      codOrderId: convo.contextId,
+      decision, // 'CONFIRM' | 'CANCEL' (UNKNOWN already returned above)
+      response: text,
+    })
+  }
+  // lane:cod-verify END
 }
 
 // Called by the timeout worker once it has atomically expired a verification conversation. The COD

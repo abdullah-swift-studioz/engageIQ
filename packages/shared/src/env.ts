@@ -136,6 +136,19 @@ const schema = z.object({
   // Resend API key — optional fallback sender when AWS SES creds are absent (guide 7.3).
   RESEND_API_KEY: z.string().optional(),
   // lane:email END
+  // lane:cod-verify START
+  // Fixerr AI IVR integration for COD verification voice calls (guide §7.4 Option C).
+  // ALL OPTIONAL: with no creds the IVR channel gracefully mocks/skips (never auto-confirms) —
+  // the escalation ladder simply proceeds to its next tick / final auto-cancel.
+  // Base URL of the Fixerr voice/IVR REST API.
+  FIXERR_API_URL: z.string().url().optional(),
+  // Fixerr API key / bearer token.
+  FIXERR_API_KEY: z.string().optional(),
+  // Fixerr IVR flow / campaign id used for the confirm/cancel (press 1 / press 2) COD script.
+  FIXERR_IVR_FLOW_ID: z.string().optional(),
+  // Public URL Fixerr POSTs the DTMF result callback to (future inbound wiring; unused when mocked).
+  FIXERR_CALLBACK_URL: z.string().url().optional(),
+  // lane:cod-verify END
 })
 
 const result = schema.safeParse(process.env)

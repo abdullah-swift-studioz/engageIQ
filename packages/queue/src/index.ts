@@ -24,5 +24,8 @@ export {
   // lane:wa-conversation START
   conversationTimeoutQueue,
   // lane:wa-conversation END
+  // lane:cod-verify START
+  codVerificationQueue,
+  // lane:cod-verify END
 } from './queues.js'
 export type { QueueName } from './queues.js'
