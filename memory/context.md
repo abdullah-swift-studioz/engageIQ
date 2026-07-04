@@ -1,8 +1,23 @@
 # EngageIQ — Project Context
 
 > Last updated: 2026-07-04
-> Current phase: **Wave-2A integration COMPLETE** (commit `067d8f1`, on `main`, pushed) — all 10 Wave-2A lanes merged
-> Next action: Manual boot/browser verification of the newly merged channels + settings (integrator cannot boot). Then Wave 2B / remaining roadmap. STILL OUTSTANDING from Wave 1: add a boot smoke-test to `scripts/preflight.sh` so the gate catches boot failures (it still only builds/typechecks/tests, never boots the server).
+> Current phase: **Wave-2B integration COMPLETE** (commit `10be713`, on `main`, pushed) — all 3 Wave-2B lanes merged (cod-verify, flows, restyle)
+> Next action: Manual boot/browser verification of the newly merged COD-verification flows, flow library, and restyled pages (integrator cannot boot). Then remaining roadmap. STILL OUTSTANDING from Wave 1: add a boot smoke-test to `scripts/preflight.sh` so the gate catches boot failures (it still only builds/typechecks/tests, never boots the server).
+
+## Wave 2B Integration (2026-07-04) — 3 lanes merged to main
+
+All three Wave-2B lanes merged into `main` via `git merge --no-ff` (NOT rebase — lane worktrees keep these branches checked out), ONE AT A TIME in dependency order: **cod-verify → flows → restyle** (restyle LAST, since it restyles the final merged pages). Each merge gated by `scripts/preflight.sh` (build + typecheck + full api test suite); the trailing `prisma migrate status` step fails on `DATABASE_URL` by design (no root `.env` at integration cwd) and is treated as expected. Final gate state: **preflight green — web build ✓, 61 test files / 481 api tests pass, 0 conflict markers.** Server boot + browser checks are Abdullah's.
+
+**Merge order & commits:** cod-verify `894495f` (clean, no conflicts) → flows `012d3df` → restyle `10be713` (clean, no conflicts).
+
+**Conflicts & resolution:**
+- **cod-verify** — CLEAN merge, zero conflicts.
+- **flows** — 3 shared-file conflicts, all mechanical `// lane:<name>` append-blocks, resolved keep-both: `apps/api/src/index.ts` (route import + registration), `packages/shared/src/index.ts` (re-exports), `packages/shared/src/types.ts` (FlowTemplate types alongside cod-verify's verification types). No logic conflict.
+- **restyle** — CLEAN merge, zero conflicts. Restyle branched such that its 27 web-page/component edits (monochrome design system) auto-merged against the cod-verify/flows additions; the newly-added cod-verify pages (`verifications._index.tsx`, `verifications.$id.tsx`) and flow-library pages were not on the restyle branch so they carry lane-native styling (follow-up: restyle those in a later pass).
+
+**Preflight note (transient, non-blocking):** the final re-verification run hit a one-off Node 25.9.0 process-teardown crash (`FATAL ERROR: v8::ToLocalChecked Empty MaybeLocal` in the native CJS lexer during a dynamic-import teardown) that made vitest exit non-zero *after* all 481 tests had already passed. Confirmed flaky — 3 consecutive isolated api-test runs came back exit 0 / 481 passed / 0 fatal, and a clean full preflight re-run reproduced the normal green state. Not caused by the merge content.
+
+**New customer-facing surface now on main:** automated COD verification flows (two-way WhatsApp/SMS/IVR confirmation, per-merchant escalation ladder, auto-cancel on timeout, verification analytics + queue UI), the pre-built flow library (52 system FlowTemplates across abandoned-cart/welcome/post-purchase/win-back/loyalty-VIP/COD categories, browse + one-click "use this flow" → draft Journey), and a full monochrome design-system restyle of all Wave-1 web pages (segments, journeys, campaigns, customers, analytics, messages, whatsapp-templates). Per-lane detail in each lane's `updates/` file.
 
 ## Wave 2A Integration (2026-07-04) — 10 lanes merged to main
 
