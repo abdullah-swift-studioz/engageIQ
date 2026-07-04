@@ -57,6 +57,9 @@ import emailTrackingRoutes from './routes/email/tracking.js'
 // lane:wa-conversation START
 import conversationsRoutes from './routes/conversations/index.js'
 // lane:wa-conversation END
+// lane:ai-wiring START
+import clustersRoutes from './routes/clusters/index.js'
+// lane:ai-wiring END
 
 const app = Fastify({
   logger: {
@@ -152,6 +155,9 @@ await app.register(emailTrackingRoutes, { prefix: '/email' })
 // lane:wa-conversation START
 await app.register(conversationsRoutes, { prefix: '/api/v1/conversations' })
 // lane:wa-conversation END
+// lane:ai-wiring START
+await app.register(clustersRoutes, { prefix: '/api/v1/clusters' })
+// lane:ai-wiring END
 
 app.get('/health', () => ({
   status: 'ok',

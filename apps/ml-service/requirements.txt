@@ -10,3 +10,6 @@ numpy>=1.26
 pandas>=2.2
 scikit-learn>=1.5
 joblib>=1.4
+# BG/NBD + Gamma-Gamma LTV (milestone 7.2). Optional at runtime: app/models/ltv.py imports
+# it defensively and falls back to a numpy formula if it is absent or the fit is too sparse.
+lifetimes>=0.11

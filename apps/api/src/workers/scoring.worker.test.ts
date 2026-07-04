@@ -9,6 +9,7 @@ vi.mock('@engageiq/shared', () => ({
     ML_SEGMENT_DISCOVERY_CRON: '0 4 * * 0',
     ML_SCHEDULER_ENABLED: true,
   },
+  CHURN_SCORE: { MIN: 0, MAX: 100, BANDS: { LOW: 25, MEDIUM: 50, HIGH: 75, CRITICAL: 100 } },
 }))
 
 // Mock the queue package so no Redis connection is attempted on import.
@@ -24,12 +25,19 @@ vi.mock('@engageiq/db', () => ({
     order: { findMany: vi.fn() },
     recommendation: { upsert: vi.fn().mockResolvedValue({}) },
     merchant: { findMany: vi.fn() },
+    merchantSettings: { findUnique: vi.fn().mockResolvedValue(null) },
     modelRun: { create: vi.fn().mockResolvedValue({}) },
     $transaction: vi.fn(async (arr: Promise<unknown>[]) => Promise.all(arr)),
   },
 }))
 
+// journey-entry is pulled in by the churn trigger; mock it so no queue is touched.
+vi.mock('../services/journey-entry.service.js', () => ({
+  checkJourneyEntry: vi.fn().mockResolvedValue(undefined),
+}))
+
 import { prisma } from '@engageiq/db'
+import { checkJourneyEntry } from '../services/journey-entry.service.js'
 import {
   buyers,
   buildRfmInputs,
@@ -38,7 +46,10 @@ import {
   buildFakeOrderInput,
   buildInteractions,
   runRfm,
+  runChurn,
   runScoringJob,
+  resolveChurnThreshold,
+  churnCrossings,
   type MlClient,
 } from './scoring.worker.js'
 
@@ -172,6 +183,67 @@ describe('runRfm', () => {
     const n = await runRfm('m1', { ml, now: NOW })
     expect(n).toBe(0)
     expect(ml.rfm).not.toHaveBeenCalled()
+  })
+})
+
+describe('churn threshold trigger', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('resolveChurnThreshold defaults to the MEDIUM band, honours a merchant override', () => {
+    expect(resolveChurnThreshold(null)).toBe(50)
+    expect(resolveChurnThreshold({})).toBe(50)
+    expect(resolveChurnThreshold({ churnThreshold: 65 })).toBe(65)
+    expect(resolveChurnThreshold({ churnThreshold: 999 })).toBe(50) // out of range → default
+  })
+
+  it('churnCrossings fires only on the below→above transition', () => {
+    const prev = new Map<string, number | null>([
+      ['a', 40], // was below, now above → cross
+      ['b', 80], // already above → no cross
+      ['c', null], // never scored, now above → cross
+      ['d', 10], // stays below → no cross
+    ])
+    const scores = [
+      { id: 'a', churnScore: 70, churnRiskLabel: 'HIGH' as const },
+      { id: 'b', churnScore: 90, churnRiskLabel: 'CRITICAL' as const },
+      { id: 'c', churnScore: 55, churnRiskLabel: 'HIGH' as const },
+      { id: 'd', churnScore: 20, churnRiskLabel: 'LOW' as const },
+    ]
+    const crossed = churnCrossings(prev, scores, 50)
+    expect(crossed.map((s) => s.id)).toEqual(['a', 'c'])
+  })
+
+  it('runChurn enrolls crossed customers into churn_risk journeys', async () => {
+    ;(prisma.customer.findMany as any).mockResolvedValue([
+      cust({ id: 'a', totalOrders: 3, totalSpent: 30000, churnScore: 20 }),
+    ])
+    const ml = {
+      churn: vi.fn().mockResolvedValue([{ id: 'a', churnScore: 88, churnRiskLabel: 'CRITICAL' }]),
+    } as unknown as MlClient
+
+    const n = await runChurn('m1', { ml, now: NOW })
+
+    expect(n).toBe(1)
+    expect(checkJourneyEntry).toHaveBeenCalledWith(
+      'a',
+      'm1',
+      'churn_risk',
+      expect.objectContaining({ churnScore: 88, churnRiskLabel: 'CRITICAL' }),
+    )
+  })
+
+  it('runChurn does not fire when the score stays above threshold (no transition)', async () => {
+    ;(prisma.customer.findMany as any).mockResolvedValue([
+      cust({ id: 'a', totalOrders: 3, totalSpent: 30000, churnScore: 80 }),
+    ])
+    const ml = {
+      churn: vi.fn().mockResolvedValue([{ id: 'a', churnScore: 85, churnRiskLabel: 'CRITICAL' }]),
+    } as unknown as MlClient
+
+    await runChurn('m1', { ml, now: NOW })
+    expect(checkJourneyEntry).not.toHaveBeenCalled()
   })
 })
 
