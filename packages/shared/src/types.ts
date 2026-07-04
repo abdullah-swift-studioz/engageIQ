@@ -473,6 +473,28 @@ export type ChannelSendPayload =
     }
   | { channel: 'SMS'; toPhone: string; body: string }
   | { channel: 'EMAIL'; toEmail: string; subject: string; html: string; text: string }
+  // lane:push START — one push notification to ONE browser subscription. The push-send
+  // worker / message-dispatch PUSH branch fans out one send() call per active subscription.
+  | { channel: 'PUSH'; subscription: WebPushSubscription; notification: PushNotification }
+// lane:push END
+
+// lane:push START
+// A browser Web Push subscription as produced by PushManager.subscribe() — the endpoint
+// (unique per browser+device) plus the two encryption keys. Mirrors the JSON stored in
+// PushSubscription.endpoint / PushSubscription.keys.
+export interface WebPushSubscription {
+  endpoint: string
+  keys: { p256dh: string; auth: string }
+}
+
+// The rendered notification payload delivered to the service worker's `push` handler.
+export interface PushNotification {
+  title: string
+  body: string
+  url?: string
+  icon?: string
+}
+// lane:push END
 
 // Adapters never throw for expected provider errors — they return this typed result.
 // `retryable` tells the worker whether to rethrow (BullMQ retry) or fail permanently.

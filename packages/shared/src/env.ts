@@ -78,6 +78,17 @@ const schema = z.object({
   // Reasoning effort for copy generation: low is ideal for short copy (fast + cheap).
   ANTHROPIC_COPYWRITER_EFFORT: z.enum(['low', 'medium', 'high']).default('low'),
   // lane:copywriter END
+  // lane:push START
+  // VAPID keypair for the self-hosted Web Push Protocol. Generate once with:
+  //   npx web-push generate-vapid-keys   (or: node -e "console.log(require('web-push').generateVAPIDKeys())")
+  // Both optional so the app boots credential-free; the PushAdapter returns a clean
+  // "push not configured" until both are set. The PUBLIC key is safe to expose to browsers
+  // (the SDK fetches it to subscribe); the PRIVATE key must stay server-side only.
+  VAPID_PUBLIC_KEY: z.string().optional(),
+  VAPID_PRIVATE_KEY: z.string().optional(),
+  // Contact URI Meta/push services use to reach you about your pushes — a mailto: or https: URL.
+  VAPID_SUBJECT: z.string().default('mailto:push@engageiq.app'),
+  // lane:push END
 })
 
 const result = schema.safeParse(process.env)

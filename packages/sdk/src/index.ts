@@ -367,7 +367,65 @@
     autoInit();
   }
 
+  // ─── Web Push subscription (lane:push) ───────────────────────────────────────
+  // Registers the service worker, requests notification permission, subscribes via the
+  // PushManager using the server's VAPID public key, and POSTs the subscription to the API.
+  // Call it from a user gesture (browsers block permission prompts otherwise):
+  //   EngageIQ.subscribePush().then((ok) => { ... })
+
+  function urlBase64ToUint8Array(base64String: string): Uint8Array {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const raw = win.atob(base64);
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+
+  async function subscribePush(opts: { swPath?: string } = {}): Promise<boolean> {
+    try {
+      if (!_merchantId || !_apiBase) return false;
+      if (!('serviceWorker' in navigator) || !('PushManager' in win) || !('Notification' in win)) return false;
+
+      const permission = await (win as any).Notification.requestPermission();
+      if (permission !== 'granted') return false;
+
+      const reg = await navigator.serviceWorker.register(opts.swPath || '/eiq-sw.js');
+      await navigator.serviceWorker.ready;
+
+      // Fetch the server VAPID public key.
+      const keyRes = await fetch(_apiBase + '/api/v1/push/vapid-public-key');
+      if (!keyRes.ok) return false;
+      const keyJson = await keyRes.json();
+      const publicKey = keyJson && keyJson.data && keyJson.data.publicKey;
+      if (!publicKey) return false;
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey),
+        });
+      }
+
+      const res = await fetch(_apiBase + '/api/v1/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          merchant_id: _merchantId,
+          anon_id: getAnonId(),
+          customer_id: getShopifyCustomerId() || undefined,
+          subscription: sub.toJSON(),
+          user_agent: navigator.userAgent,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
   // ─── Public API ──────────────────────────────────────────────────────────────
 
-  (win as any).EngageIQ = { init, track, identify };
+  (win as any).EngageIQ = { init, track, identify, subscribePush };
 })(window);
