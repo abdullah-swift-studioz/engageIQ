@@ -61,3 +61,6 @@ export type {
 // lane:push START
 export type { WebPushSubscription, PushNotification } from './types.js'
 // lane:push END
+// lane:courier START
+export type { CourierSweepJob, CourierJob } from './types.js'
+// lane:courier END

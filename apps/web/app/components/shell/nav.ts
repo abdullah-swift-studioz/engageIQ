@@ -83,6 +83,12 @@ export const NAV: NavSection[] = [
       },
     ],
   },
+  // lane:courier START
+  {
+    title: 'Fulfillment',
+    items: [{ label: 'Shipments', to: '/shipments', icon: Route }],
+  },
+  // lane:courier END
   {
     title: 'Configure',
     items: [

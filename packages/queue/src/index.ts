@@ -15,5 +15,8 @@ export {
   // lane:push START
   pushSendQueue,
   // lane:push END
+  // lane:courier START
+  courierPollQueue,
+  // lane:courier END
 } from './queues.js'
 export type { QueueName } from './queues.js'
