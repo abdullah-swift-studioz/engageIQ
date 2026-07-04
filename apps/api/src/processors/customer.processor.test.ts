@@ -4,6 +4,13 @@ vi.mock('../services/journey-entry.service.js', () => ({
   checkJourneyEntry: vi.fn().mockResolvedValue(undefined),
 }))
 
+// Mocked so this unit test does not load the real emit.js (pulled in transitively via
+// segment-evaluator.js), which imports @engageiq/shared at runtime and would trigger env
+// validation (process.exit) with no env vars set in tests.
+vi.mock('../services/webhooks-outbound/emit.js', () => ({
+  emitOutboundEvent: vi.fn(),
+}))
+
 vi.mock('@engageiq/db', () => ({
   prisma: {
     customer: {
