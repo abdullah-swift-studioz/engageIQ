@@ -69,6 +69,9 @@ import { actingMerchantPreHandler } from './services/agency/index.js'
 // lane:cod-verify START
 import verificationsRoutes from './routes/verifications/index.js'
 // lane:cod-verify END
+// lane:flows START
+import flowLibraryRoutes from './routes/flow-library/index.js'
+// lane:flows END
 
 const app = Fastify({
   logger: {
@@ -180,6 +183,9 @@ await app.register(agencyRoutes, { prefix: '/api/v1/agency' })
 // lane:cod-verify START
 await app.register(verificationsRoutes, { prefix: '/api/v1/verifications' })
 // lane:cod-verify END
+// lane:flows START
+await app.register(flowLibraryRoutes, { prefix: '/api/v1/flow-library' })
+// lane:flows END
 
 app.get('/health', () => ({
   status: 'ok',

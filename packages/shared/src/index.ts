@@ -121,3 +121,14 @@ export type {
   VerificationStats,
 } from './types.js'
 // lane:cod-verify END
+// lane:flows START
+export { FLOW_CATEGORIES } from './types.js'
+export type {
+  FlowCategory,
+  FlowTemplateNode,
+  FlowTemplateTrigger,
+  FlowTemplateGraph,
+  FlowTemplateDTO,
+  FlowInstantiationResult,
+} from './types.js'
+// lane:flows END
