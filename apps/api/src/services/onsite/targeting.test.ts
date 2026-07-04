@@ -1,4 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// Mocked so importing targeting.service.js does not load the real @engageiq/db, which imports
+// @engageiq/shared at runtime and would trigger env validation (process.exit) with no env vars
+// set in tests. The functions exercised here are pure and never touch prisma.
+vi.mock('@engageiq/db', () => ({
+  prisma: {
+    customer: { findFirst: vi.fn() },
+    segmentMembership: { findMany: vi.fn() },
+    onSiteElement: { findMany: vi.fn() },
+    abTest: { findMany: vi.fn() },
+  },
+}))
+
 import {
   hashToBucket,
   pickVariant,
