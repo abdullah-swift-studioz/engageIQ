@@ -1,7 +1,20 @@
 import { useState } from 'react'
-import { Form, useActionData, useNavigation } from '@remix-run/react'
+import { Form, Link, useActionData, useNavigation } from '@remix-run/react'
 import type { ActionFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardContent,
+  FormField,
+  Input,
+  Textarea,
+  Select,
+  Button,
+  buttonVariants,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'New WhatsApp Template — EngageIQ' }]
 
@@ -50,9 +63,6 @@ interface VarRow {
   default: string
 }
 
-const label: React.CSSProperties = { display: 'block', fontSize: '0.8rem', color: '#374151', marginBottom: '0.25rem' }
-const input: React.CSSProperties = { width: '100%', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontFamily: 'monospace', boxSizing: 'border-box' }
-
 export default function NewTemplatePage() {
   const actionData = useActionData<ActionData>()
   const navigation = useNavigation()
@@ -73,89 +83,125 @@ export default function NewTemplatePage() {
   })
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: 900 }}>
-      <h1>New WhatsApp Template</h1>
-      {actionData?.error && <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {actionData.error}</div>}
+    <div className="flex flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'WhatsApp Templates', href: '/whatsapp-templates' }, { label: 'New' }]} />
+      <PageHeader
+        eyebrow="Channels"
+        title="New WhatsApp template"
+        description="Compose the body, map variables to profile fields, and preview before saving."
+      />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem' }}>
-        <Form method="post">
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={label}>Name (lowercase_with_underscores)</label>
-            <input style={input} name="name" defaultValue="order_confirmation" required />
-          </div>
+      {actionData?.error && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {actionData.error}
+        </p>
+      )}
 
-          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-            <div style={{ flex: 1 }}>
-              <label style={label}>Language code (en, ur, ar_AE…)</label>
-              <input style={input} name="language" value={language} onChange={(e) => setLanguage(e.target.value)} required />
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={label}>Category</label>
-              <select style={input} name="category" defaultValue="UTILITY">
-                <option value="UTILITY">UTILITY</option>
-                <option value="MARKETING">MARKETING</option>
-              </select>
-            </div>
-          </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card>
+          <CardContent className="pt-6">
+            <Form method="post" className="space-y-4">
+              <FormField label="Name" hint="lowercase_with_underscores">
+                <Input name="name" defaultValue="order_confirmation" required />
+              </FormField>
 
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={label}>Body (use {'{{1}}'}, {'{{2}}'} … for variables)</label>
-            <textarea style={{ ...input, minHeight: 100 }} name="bodyText" value={bodyText} onChange={(e) => setBodyText(e.target.value)} required />
-          </div>
-
-          <div style={{ marginBottom: '1rem' }}>
-            <label style={label}>Variables (in {'{{n}}'} order)</label>
-            {rows.map((row, i) => (
-              <div key={i} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
-                <span style={{ color: '#6b7280' }}>{`{{${i + 1}}}`}</span>
-                <input
-                  style={input}
-                  placeholder="profile field (e.g. firstName)"
-                  value={row.field}
-                  onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, field: e.target.value } : r)))}
-                />
-                <input
-                  style={input}
-                  placeholder="default (optional)"
-                  value={row.default}
-                  onChange={(e) => setRows(rows.map((r, j) => (j === i ? { ...r, default: e.target.value } : r)))}
-                />
-                <button type="button" onClick={() => setRows(rows.filter((_, j) => j !== i))} style={{ cursor: 'pointer' }}>
-                  ✕
-                </button>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <FormField label="Language code" hint="en, ur, ar_AE…">
+                  <Input
+                    name="language"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    required
+                  />
+                </FormField>
+                <FormField label="Category">
+                  <Select name="category" defaultValue="UTILITY">
+                    <option value="UTILITY">UTILITY</option>
+                    <option value="MARKETING">MARKETING</option>
+                  </Select>
+                </FormField>
               </div>
-            ))}
-            <button type="button" onClick={() => setRows([...rows, { field: '', default: '' }])} style={{ cursor: 'pointer' }}>
-              + Add variable
-            </button>
-          </div>
 
-          <input type="hidden" name="variableMap" value={JSON.stringify(variableMap)} />
-          <button
-            type="submit"
-            disabled={navigation.state === 'submitting'}
-            style={{ background: '#2563eb', color: '#fff', padding: '0.5rem 1.25rem', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-          >
-            {navigation.state === 'submitting' ? 'Saving…' : 'Save as Draft'}
-          </button>
-        </Form>
+              <FormField label="Body" hint="Use {{1}}, {{2}} … for variables">
+                <Textarea
+                  name="bodyText"
+                  value={bodyText}
+                  onChange={(e) => setBodyText(e.target.value)}
+                  rows={5}
+                  required
+                />
+              </FormField>
+
+              <FormField label="Variables" hint="In {{n}} order.">
+                <div className="flex flex-col gap-2">
+                  {rows.map((row, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="w-10 shrink-0 font-mono text-xs text-neutral-500">{`{{${i + 1}}}`}</span>
+                      <Input
+                        placeholder="profile field (e.g. firstName)"
+                        value={row.field}
+                        onChange={(e) =>
+                          setRows(rows.map((r, j) => (j === i ? { ...r, field: e.target.value } : r)))
+                        }
+                      />
+                      <Input
+                        placeholder="default (optional)"
+                        value={row.default}
+                        onChange={(e) =>
+                          setRows(rows.map((r, j) => (j === i ? { ...r, default: e.target.value } : r)))
+                        }
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove variable"
+                        onClick={() => setRows(rows.filter((_, j) => j !== i))}
+                      >
+                        <Icons.X className="size-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setRows([...rows, { field: '', default: '' }])}
+                    >
+                      <Icons.Plus className="size-4" />
+                      Add variable
+                    </Button>
+                  </div>
+                </div>
+              </FormField>
+
+              <input type="hidden" name="variableMap" value={JSON.stringify(variableMap)} />
+              <div className="flex justify-end gap-2">
+                <Link to="/whatsapp-templates" className={buttonVariants({ variant: 'secondary' })}>
+                  Cancel
+                </Link>
+                <Button type="submit" isLoading={navigation.state === 'submitting'}>
+                  Save as Draft
+                </Button>
+              </div>
+            </Form>
+          </CardContent>
+        </Card>
 
         <div>
-          <label style={label}>Preview {isRtl(language) ? '(RTL)' : ''}</label>
+          <p className="mb-2 text-2xs font-medium uppercase tracking-wider text-neutral-500">
+            Preview {isRtl(language) ? '(RTL)' : ''}
+          </p>
           <div
             dir={isRtl(language) ? 'rtl' : 'ltr'}
-            style={{
-              background: '#dcf8c6',
-              padding: '0.75rem 1rem',
-              borderRadius: '8px',
-              whiteSpace: 'pre-wrap',
-              fontFamily: isRtl(language) ? "'Noto Naskh Arabic', serif" : 'inherit',
-              minHeight: 80,
-            }}
+            className="min-h-[80px] whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-100 px-4 py-3 text-sm text-neutral-950"
+            style={{ fontFamily: isRtl(language) ? "'Noto Naskh Arabic', serif" : 'inherit' }}
           >
             {preview}
           </div>
-          <p style={{ fontSize: '0.7rem', color: '#9ca3af', marginTop: '0.5rem' }}>
+          <p className="mt-2 text-xs text-neutral-400">
             Variables resolve from the customer profile at send time; the default shown here is the fallback.
           </p>
         </div>

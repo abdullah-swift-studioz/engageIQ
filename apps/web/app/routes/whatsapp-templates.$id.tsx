@@ -1,6 +1,17 @@
 import { Form, Link, useLoaderData, useActionData, useNavigation } from '@remix-run/react'
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Badge,
+  Button,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Template — EngageIQ' }]
 
@@ -78,11 +89,21 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return json({ error: 'Unknown action' }, { status: 400 })
 }
 
-const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-  DRAFT: { bg: '#f3f4f6', fg: '#374151' },
-  PENDING: { bg: '#fef3c7', fg: '#92400e' },
-  APPROVED: { bg: '#dcfce7', fg: '#166534' },
-  REJECTED: { bg: '#fee2e2', fg: '#991b1b' },
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  DRAFT: 'subtle',
+  PENDING: 'outline',
+  APPROVED: 'solid',
+  REJECTED: 'outline',
+}
+
+function statusIcon(status: string) {
+  if (status === 'APPROVED') return <Icons.CheckCircle className="size-3.5" />
+  if (status === 'REJECTED') return <Icons.AlertCircle className="size-3.5" />
+  return null
+}
+
+function isRtl(language: string): boolean {
+  return /^(ur|ar|fa|ps|sd)/i.test(language.trim())
 }
 
 export default function TemplateDetailPage() {
@@ -92,69 +113,118 @@ export default function TemplateDetailPage() {
 
   if (error || !template) {
     return (
-      <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-        <Link to="/whatsapp-templates" style={{ color: '#2563eb' }}>← Templates</Link>
-        <p style={{ color: 'red', marginTop: '1rem' }}>{error ?? 'Not found'}</p>
+      <div className="flex flex-col gap-4 p-6">
+        <Breadcrumb items={[{ label: 'WhatsApp Templates', href: '/whatsapp-templates' }, { label: 'Not found' }]} />
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error ?? 'Not found'}
+        </p>
       </div>
     )
   }
 
-  const c = STATUS_COLORS[template.status] ?? STATUS_COLORS.DRAFT
   const canSubmit = template.status === 'DRAFT' || template.status === 'REJECTED'
+  const rtl = isRtl(template.language)
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: 800 }}>
-      <Link to="/whatsapp-templates" style={{ color: '#2563eb' }}>← Templates</Link>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '1rem 0' }}>
-        <h1 style={{ margin: 0 }}>{template.name}</h1>
-        <span style={{ background: c!.bg, color: c!.fg, padding: '4px 12px', borderRadius: '9999px', fontSize: '0.8rem' }}>
-          {template.status}
-        </span>
-      </div>
+    <div className="mx-auto flex max-w-[820px] flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'WhatsApp Templates', href: '/whatsapp-templates' }, { label: template.name }]} />
+      <PageHeader
+        eyebrow="Channels"
+        title={template.name}
+        actions={
+          <Badge variant={STATUS_VARIANT[template.status] ?? 'subtle'} dot>
+            {statusIcon(template.status)}
+            {template.status}
+          </Badge>
+        }
+      />
 
-      {actionData?.error && <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {actionData.error}</div>}
-
-      <dl style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '0.5rem 1rem', marginBottom: '1.5rem' }}>
-        <dt style={{ color: '#6b7280' }}>Language</dt><dd>{template.language}</dd>
-        <dt style={{ color: '#6b7280' }}>Category</dt><dd>{template.category}</dd>
-        {template.metaTemplateId && (<><dt style={{ color: '#6b7280' }}>Meta ID</dt><dd>{template.metaTemplateId}</dd></>)}
-        {template.rejectionReason && (
-          <><dt style={{ color: '#6b7280' }}>Rejection</dt><dd style={{ color: '#991b1b' }}>{template.rejectionReason}</dd></>
-        )}
-      </dl>
-
-      <h3>Body</h3>
-      <pre style={{ background: '#f9fafb', padding: '1rem', borderRadius: '6px', whiteSpace: 'pre-wrap' }}>{template.bodyText}</pre>
-
-      <h3>Variables</h3>
-      {template.variableMap.length === 0 ? (
-        <p style={{ color: '#6b7280' }}>None</p>
-      ) : (
-        <ul>
-          {template.variableMap.map((v) => (
-            <li key={v.index}>{`{{${v.index}}}`} → {v.field}{v.default ? ` (default: "${v.default}")` : ' (no default → required)'}</li>
-          ))}
-        </ul>
+      {actionData?.error && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {actionData.error}
+        </p>
       )}
 
-      <div style={{ display: 'flex', gap: '0.75rem', marginTop: '2rem' }}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
+            <dt className="text-neutral-500">Language</dt>
+            <dd className="text-neutral-950">{template.language}</dd>
+            <dt className="text-neutral-500">Category</dt>
+            <dd className="text-neutral-950">{template.category}</dd>
+            {template.metaTemplateId && (
+              <>
+                <dt className="text-neutral-500">Meta ID</dt>
+                <dd className="font-mono text-neutral-950">{template.metaTemplateId}</dd>
+              </>
+            )}
+            {template.rejectionReason && (
+              <>
+                <dt className="text-neutral-500">Rejection</dt>
+                <dd className="flex items-center gap-1.5 font-medium text-neutral-950">
+                  <Icons.AlertCircle className="size-4" />
+                  {template.rejectionReason}
+                </dd>
+              </>
+            )}
+          </dl>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Body</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <pre
+            dir={rtl ? 'rtl' : 'ltr'}
+            className="whitespace-pre-wrap rounded-lg border border-neutral-200 bg-neutral-100 p-4 text-sm text-neutral-950"
+            style={{ fontFamily: rtl ? "'Noto Naskh Arabic', serif" : 'inherit' }}
+          >
+            {template.bodyText}
+          </pre>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Variables</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {template.variableMap.length === 0 ? (
+            <p className="text-sm text-neutral-500">None</p>
+          ) : (
+            <ul className="flex flex-col gap-1 text-sm text-neutral-950">
+              {template.variableMap.map((v) => (
+                <li key={v.index}>
+                  <span className="font-mono text-neutral-600">{`{{${v.index}}}`}</span> → {v.field}
+                  {v.default ? ` (default: "${v.default}")` : ' (no default → required)'}
+                </li>
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <div className="flex items-center gap-3">
         {canSubmit && (
           <Form method="post">
             <input type="hidden" name="_action" value="submit" />
-            <button
-              type="submit"
-              disabled={navigation.state === 'submitting'}
-              style={{ background: '#2563eb', color: '#fff', padding: '0.5rem 1.25rem', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
-            >
-              {navigation.state === 'submitting' ? 'Submitting…' : 'Submit to Meta'}
-            </button>
+            <Button type="submit" isLoading={navigation.state === 'submitting'}>
+              Submit to Meta
+            </Button>
           </Form>
         )}
         <Form method="post" onSubmit={(e) => { if (!confirm('Delete this template?')) e.preventDefault() }}>
           <input type="hidden" name="_action" value="delete" />
-          <button type="submit" style={{ background: '#fff', color: '#991b1b', padding: '0.5rem 1.25rem', borderRadius: '4px', border: '1px solid #fca5a5', cursor: 'pointer' }}>
+          <Button type="submit" variant="destructive">
             Delete
-          </button>
+          </Button>
         </Form>
       </div>
     </div>

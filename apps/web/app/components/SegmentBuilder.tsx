@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { SegmentGroup, SegmentCondition, ConditionOperator } from '@engageiq/shared'
+import { Input, Select, Textarea, Button, FormField, Icons } from '~/components/ui'
 
 // ─── Field metadata for UI rendering ────────────────────────────────────────
 
@@ -85,20 +86,33 @@ function ValueInput({
   if (operator === 'between') {
     const arr = Array.isArray(value) ? value : ['', '']
     return (
-      <span style={{ display: 'inline-flex', gap: '4px', alignItems: 'center' }}>
-        <input type={fieldType === 'date' ? 'date' : 'number'} value={String(arr[0] ?? '')} style={{ width: '100px', padding: '4px' }}
-          onChange={(e) => onChange([e.target.value, arr[1]])} />
-        <span>and</span>
-        <input type={fieldType === 'date' ? 'date' : 'number'} value={String(arr[1] ?? '')} style={{ width: '100px', padding: '4px' }}
-          onChange={(e) => onChange([arr[0], e.target.value])} />
+      <span className="inline-flex items-center gap-2">
+        <Input
+          type={fieldType === 'date' ? 'date' : 'number'}
+          value={String(arr[0] ?? '')}
+          className="w-32"
+          onChange={(e) => onChange([e.target.value, arr[1]])}
+        />
+        <span className="text-sm text-neutral-500">and</span>
+        <Input
+          type={fieldType === 'date' ? 'date' : 'number'}
+          value={String(arr[1] ?? '')}
+          className="w-32"
+          onChange={(e) => onChange([arr[0], e.target.value])}
+        />
       </span>
     )
   }
 
   if (operator === 'within_last_days' || operator === 'more_than_days_ago') {
     return (
-      <input type="number" min="1" value={typeof value === 'number' ? value : ''} style={{ width: '80px', padding: '4px' }}
-        onChange={(e) => onChange(parseInt(e.target.value, 10))} />
+      <Input
+        type="number"
+        min="1"
+        value={typeof value === 'number' ? value : ''}
+        className="w-24"
+        onChange={(e) => onChange(parseInt(e.target.value, 10))}
+      />
     )
   }
 
@@ -106,41 +120,61 @@ function ValueInput({
     if (fieldType === 'enum' && ENUM_VALUES[field]) {
       const selected = Array.isArray(value) ? (value as string[]) : []
       return (
-        <select multiple value={selected} size={4} style={{ width: '160px', padding: '4px' }}
-          onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}>
-          {ENUM_VALUES[field]!.map((v) => <option key={v} value={v}>{v}</option>)}
-        </select>
+        <div className="w-48">
+          <Select
+            multiple
+            value={selected}
+            size={4}
+            className="h-auto py-1"
+            onChange={(e) => onChange(Array.from(e.target.selectedOptions, (o) => o.value))}
+          >
+            {ENUM_VALUES[field]!.map((v) => <option key={v} value={v}>{v}</option>)}
+          </Select>
+        </div>
       )
     }
     const str = Array.isArray(value) ? (value as string[]).join(', ') : ''
     return (
-      <input type="text" placeholder="comma-separated values" value={str} style={{ width: '200px', padding: '4px' }}
-        onChange={(e) => onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))} />
+      <Input
+        type="text"
+        placeholder="comma-separated values"
+        value={str}
+        className="w-56"
+        onChange={(e) => onChange(e.target.value.split(',').map((s) => s.trim()).filter(Boolean))}
+      />
     )
   }
 
   if (fieldType === 'enum' && ENUM_VALUES[field]) {
     return (
-      <select value={typeof value === 'string' ? value : ''} style={{ padding: '4px' }}
-        onChange={(e) => onChange(e.target.value)}>
-        <option value="">Select...</option>
-        {ENUM_VALUES[field]!.map((v) => <option key={v} value={v}>{v}</option>)}
-      </select>
+      <div className="w-48">
+        <Select
+          value={typeof value === 'string' ? value : ''}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          <option value="">Select...</option>
+          {ENUM_VALUES[field]!.map((v) => <option key={v} value={v}>{v}</option>)}
+        </Select>
+      </div>
     )
   }
 
   if (fieldType === 'date') {
     return (
-      <input type="date" value={typeof value === 'string' ? value.slice(0, 10) : ''} style={{ padding: '4px' }}
-        onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')} />
+      <Input
+        type="date"
+        value={typeof value === 'string' ? value.slice(0, 10) : ''}
+        className="w-44"
+        onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : '')}
+      />
     )
   }
 
   return (
-    <input
+    <Input
       type={fieldType === 'number' ? 'number' : 'text'}
       value={typeof value === 'number' || typeof value === 'string' ? String(value) : ''}
-      style={{ width: '160px', padding: '4px' }}
+      className="w-44"
       onChange={(e) => onChange(fieldType === 'number' ? parseFloat(e.target.value) : e.target.value)}
     />
   )
@@ -162,21 +196,29 @@ function ConditionRow({
   const operators = OPERATORS_BY_TYPE[fieldType] ?? []
 
   return (
-    <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-      <select value={condition.field} style={{ padding: '4px' }}
-        onChange={(e) => {
-          const newField = e.target.value
-          const newType = FIELD_OPTIONS.find((f) => f.value === newField)?.type ?? 'string'
-          const firstOp = (OPERATORS_BY_TYPE[newType]?.[0]?.value ?? 'eq') as ConditionOperator
-          onChange({ field: newField, operator: firstOp, value: null })
-        }}>
-        {FIELD_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
-      </select>
+    <div className="mb-2 flex flex-wrap items-center gap-2">
+      <div className="w-56">
+        <Select
+          value={condition.field}
+          onChange={(e) => {
+            const newField = e.target.value
+            const newType = FIELD_OPTIONS.find((f) => f.value === newField)?.type ?? 'string'
+            const firstOp = (OPERATORS_BY_TYPE[newType]?.[0]?.value ?? 'eq') as ConditionOperator
+            onChange({ field: newField, operator: firstOp, value: null })
+          }}
+        >
+          {FIELD_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+        </Select>
+      </div>
 
-      <select value={condition.operator} style={{ padding: '4px' }}
-        onChange={(e) => onChange({ ...condition, operator: e.target.value as ConditionOperator, value: null })}>
-        {operators.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
-      </select>
+      <div className="w-44">
+        <Select
+          value={condition.operator}
+          onChange={(e) => onChange({ ...condition, operator: e.target.value as ConditionOperator, value: null })}
+        >
+          {operators.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
+        </Select>
+      </div>
 
       <ValueInput
         field={condition.field}
@@ -186,7 +228,15 @@ function ConditionRow({
         onChange={(v) => onChange({ ...condition, value: v })}
       />
 
-      <button onClick={onRemove} style={{ padding: '4px 8px', cursor: 'pointer', color: 'red' }}>×</button>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        aria-label="Remove condition"
+        onClick={onRemove}
+      >
+        <Icons.X />
+      </Button>
     </div>
   )
 }
@@ -224,24 +274,34 @@ function GroupEditor({
   }
 
   return (
-    <div style={{
-      border: '1px solid #d1d5db',
-      borderRadius: '4px',
-      padding: '12px',
-      marginBottom: '8px',
-      background: depth === 1 ? '#fff' : '#f9fafb',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <span style={{ fontSize: '0.875rem', color: '#374151' }}>Match</span>
-        <select value={group.match} style={{ padding: '4px' }}
-          onChange={(e) => onChange({ ...group, match: e.target.value as 'all' | 'any' })}>
-          <option value="all">ALL conditions</option>
-          <option value="any">ANY condition</option>
-        </select>
+    <div
+      className={
+        'mb-2 rounded-lg border border-neutral-200 p-4 ' +
+        (depth === 1 ? 'bg-white' : 'bg-neutral-50')
+      }
+    >
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm text-neutral-600">Match</span>
+        <div className="w-44">
+          <Select
+            value={group.match}
+            onChange={(e) => onChange({ ...group, match: e.target.value as 'all' | 'any' })}
+          >
+            <option value="all">ALL conditions</option>
+            <option value="any">ANY condition</option>
+          </Select>
+        </div>
         {onRemove && (
-          <button onClick={onRemove} style={{ marginLeft: 'auto', padding: '4px 8px', cursor: 'pointer', color: 'red' }}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            leftIcon={<Icons.X />}
+            onClick={onRemove}
+          >
             Remove group
-          </button>
+          </Button>
         )}
       </div>
 
@@ -275,14 +335,14 @@ function GroupEditor({
         )
       })}
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
-        <button onClick={addCondition} style={{ padding: '4px 12px', cursor: 'pointer' }}>
-          + Add condition
-        </button>
+      <div className="mt-2 flex gap-2">
+        <Button type="button" variant="ghost" size="sm" leftIcon={<Icons.Plus />} onClick={addCondition}>
+          Add condition
+        </Button>
         {depth === 1 && (
-          <button onClick={addSubGroup} style={{ padding: '4px 12px', cursor: 'pointer' }}>
-            + Add group
-          </button>
+          <Button type="button" variant="ghost" size="sm" leftIcon={<Icons.Plus />} onClick={addSubGroup}>
+            Add group
+          </Button>
         )}
       </div>
     </div>
@@ -330,59 +390,44 @@ export function SegmentBuilder({
   }
 
   return (
-    <form onSubmit={(e) => { void handleSubmit(e) }}>
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-          Segment name *
-        </label>
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={{ width: '400px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
-          placeholder="e.g. High-Value Lahore Customers"
-        />
+    <form onSubmit={(e) => { void handleSubmit(e) }} className="space-y-6">
+      <div className="max-w-md">
+        <FormField label="Segment name" error={saveError && !name.trim() ? saveError : undefined}>
+          <Input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. High-Value Lahore Customers"
+          />
+        </FormField>
       </div>
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'block', marginBottom: '4px', fontWeight: 'bold' }}>
-          Description
-        </label>
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={2}
-          style={{ width: '400px', padding: '8px', border: '1px solid #d1d5db', borderRadius: '4px' }}
-          placeholder="Optional description"
-        />
+      <div className="max-w-md">
+        <FormField label="Description">
+          <Textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            placeholder="Optional description"
+          />
+        </FormField>
       </div>
 
-      <div style={{ marginBottom: '1.5rem' }}>
-        <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-          Conditions
-        </label>
+      <div>
+        <p className="mb-2 text-sm font-medium text-neutral-950">Conditions</p>
         <GroupEditor group={group} depth={1} onChange={setGroup} />
       </div>
 
-      {saveError && (
-        <div style={{ color: 'red', marginBottom: '1rem' }}>{saveError}</div>
+      {saveError && name.trim() && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {saveError}
+        </p>
       )}
 
-      <button
-        type="submit"
-        disabled={saving}
-        style={{
-          background: '#2563eb',
-          color: '#fff',
-          padding: '0.625rem 1.5rem',
-          border: 'none',
-          borderRadius: '4px',
-          cursor: saving ? 'not-allowed' : 'pointer',
-          opacity: saving ? 0.7 : 1,
-        }}
-      >
-        {saving ? 'Saving...' : 'Save Segment'}
-      </button>
+      <Button type="submit" isLoading={saving}>
+        Save segment
+      </Button>
     </form>
   )
 }

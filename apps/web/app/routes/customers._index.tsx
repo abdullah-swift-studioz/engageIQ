@@ -2,6 +2,22 @@ import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import type { EnrichedCustomerProfile } from '@engageiq/shared'
+import {
+  PageHeader,
+  Card,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [
   { title: 'Customers — EngageIQ' },
@@ -74,19 +90,19 @@ function formatDate(value: string | null | undefined): string {
   }
 }
 
-function churnRiskBadge(label: string | null): React.ReactNode {
-  if (!label) return <span className="text-gray-400">—</span>
-  const colours: Record<string, string> = {
-    LOW: 'bg-green-100 text-green-800',
-    MEDIUM: 'bg-yellow-100 text-yellow-800',
-    HIGH: 'bg-orange-100 text-orange-800',
-    CRITICAL: 'bg-red-100 text-red-800',
-  }
-  const cls = colours[label.toUpperCase()] ?? 'bg-gray-100 text-gray-700'
+// Churn risk mapped to monochrome emphasis — never hue.
+// LOW → subtle, MEDIUM → outline, HIGH/CRITICAL → solid + AlertTriangle icon.
+function ChurnRiskBadge({ label }: { label: string | null }) {
+  if (!label) return <span className="text-neutral-400">—</span>
+  const level = label.toUpperCase()
+  const variant: 'solid' | 'outline' | 'subtle' =
+    level === 'HIGH' || level === 'CRITICAL' ? 'solid' : level === 'MEDIUM' ? 'outline' : 'subtle'
+  const withIcon = level === 'HIGH' || level === 'CRITICAL'
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <Badge variant={variant}>
+      {withIcon && <Icons.AlertTriangle className="size-3" />}
       {label}
-    </span>
+    </Badge>
   )
 }
 
@@ -94,121 +110,92 @@ export default function CustomersIndex() {
   const { customers, total, error } = useLoaderData<typeof loader>()
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Customers</h1>
-          {total > 0 && (
-            <p className="mt-1 text-sm text-gray-500">{total.toLocaleString()} total customers</p>
-          )}
-        </div>
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        eyebrow="Audience"
+        title="Customers"
+        description="Unified profiles synced from your Shopify stores, enriched with RFM and AI scores."
+      />
 
-      {/* Error banner */}
+      {total > 0 && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <StatCard label="Total customers" value={total.toLocaleString()} />
+        </div>
+      )}
+
       {error && (
-        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm font-medium text-red-700">{error}</p>
-        </div>
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error}
+        </p>
       )}
 
-      {/* Empty state */}
-      {!error && customers.length === 0 && (
-        <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 bg-white py-20 text-center">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z"
+      {!error && customers.length === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={<Icons.Users className="size-6" />}
+              title="No customers found"
+              description="Connect your Shopify store to start syncing."
             />
-          </svg>
-          <p className="mt-4 text-sm font-medium text-gray-900">No customers found</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Connect your Shopify store to start syncing.
-          </p>
-        </div>
-      )}
-
-      {/* Table */}
-      {customers.length > 0 && (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {[
-                  'Name',
-                  'Email',
-                  'Phone',
-                  'Total Orders',
-                  'Total Spent',
-                  'RFM Segment',
-                  'Churn Risk',
-                  'Last Seen',
-                ].map((col) => (
-                  <th
-                    key={col}
-                    scope="col"
-                    className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
-                  >
-                    {col}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {customers.map((c) => {
-                const name =
-                  [c.firstName, c.lastName].filter(Boolean).join(' ') || '—'
-                return (
-                  <tr key={c.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-4 py-3">
-                      <Link
-                        to={`/customers/${c.id}`}
-                        className="font-medium text-brand-600 hover:underline"
-                      >
-                        {name}
-                      </Link>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                      {c.email ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                      {c.phone ?? '—'}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                      {c.totalOrders}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-700">
-                      {formatPkr(c.totalSpent)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm">
-                      {c.rfmSegment ? (
-                        <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-medium text-brand-700">
-                          {c.rfmSegment}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">—</span>
-                      )}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm">
-                      {churnRiskBadge(c.churnRiskLabel)}
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-500">
-                      {formatDate(c.lastSeenAt)}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+          </CardContent>
+        </Card>
+      ) : customers.length > 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Total Orders</TableHead>
+                  <TableHead>Total Spent</TableHead>
+                  <TableHead>RFM Segment</TableHead>
+                  <TableHead>Churn Risk</TableHead>
+                  <TableHead>Last Seen</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {customers.length === 0 ? (
+                  <TableEmpty colSpan={8}>No customers.</TableEmpty>
+                ) : (
+                  customers.map((c) => {
+                    const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || '—'
+                    return (
+                      <TableRow key={c.id}>
+                        <TableCell>
+                          <Link
+                            to={`/customers/${c.id}`}
+                            className="font-medium underline-offset-2 hover:underline"
+                          >
+                            {name}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-neutral-600">{c.email ?? '—'}</TableCell>
+                        <TableCell className="text-neutral-600">{c.phone ?? '—'}</TableCell>
+                        <TableCell className="tabular text-neutral-600">{c.totalOrders}</TableCell>
+                        <TableCell className="tabular text-neutral-600">{formatPkr(c.totalSpent)}</TableCell>
+                        <TableCell>
+                          {c.rfmSegment ? (
+                            <Badge variant="outline">{c.rfmSegment}</Badge>
+                          ) : (
+                            <span className="text-neutral-400">—</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <ChurnRiskBadge label={c.churnRiskLabel} />
+                        </TableCell>
+                        <TableCell className="text-neutral-500">{formatDate(c.lastSeenAt)}</TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   )
 }

@@ -11,6 +11,21 @@ import {
   formatPct,
   formatPkr,
 } from '../components/analytics/ui'
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  SectionHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+} from '~/components/ui'
+import { BarChart } from '~/components/charts'
 
 export const meta: MetaFunction = () => [{ title: 'COD Analytics — EngageIQ' }]
 
@@ -34,38 +49,35 @@ function BreakdownTable({
   rows: CodBreakdownRow[]
 }) {
   return (
-    <section>
-      <h2 className="mb-2 text-sm font-semibold text-gray-900">{title}</h2>
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-2 text-left font-medium text-gray-500">{keyLabel}</th>
-              <th className="px-4 py-2 text-right font-medium text-gray-500">Total</th>
-              <th className="px-4 py-2 text-right font-medium text-gray-500">Accepted</th>
-              <th className="px-4 py-2 text-right font-medium text-gray-500">Acceptance Rate</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-500">
-                  No COD orders in this period.
-                </td>
-              </tr>
+    <Card>
+      <CardContent className="space-y-3 pt-6">
+        <SectionHeader title={title} />
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{keyLabel}</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+              <TableHead className="text-right">Accepted</TableHead>
+              <TableHead className="text-right">Acceptance Rate</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.length === 0 ? (
+              <TableEmpty colSpan={4}>No COD orders in this period.</TableEmpty>
+            ) : (
+              rows.map((r) => (
+                <TableRow key={r.key}>
+                  <TableCell className="text-neutral-900">{r.key}</TableCell>
+                  <TableCell className="tabular text-right text-neutral-600">{formatNumber(r.total)}</TableCell>
+                  <TableCell className="tabular text-right text-neutral-600">{formatNumber(r.accepted)}</TableCell>
+                  <TableCell className="tabular text-right text-neutral-900">{formatPct(r.acceptanceRate)}</TableCell>
+                </TableRow>
+              ))
             )}
-            {rows.map((r) => (
-              <tr key={r.key}>
-                <td className="px-4 py-2 text-gray-900">{r.key}</td>
-                <td className="px-4 py-2 text-right text-gray-600">{formatNumber(r.total)}</td>
-                <td className="px-4 py-2 text-right text-gray-600">{formatNumber(r.accepted)}</td>
-                <td className="px-4 py-2 text-right text-gray-900">{formatPct(r.acceptanceRate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </section>
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -83,7 +95,7 @@ export default function AnalyticsCod() {
 
       {cod && (
         <>
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <KpiCard
               label="Acceptance Rate"
               value={formatPct(cod.acceptanceRate)}
@@ -107,7 +119,7 @@ export default function AnalyticsCod() {
             />
           </div>
 
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <KpiCard label="Net Prepaid Revenue" value={formatPkr(cod.netRevenuePrepaid)} />
             <KpiCard
               label="COD → Prepaid Conversion"
@@ -116,11 +128,25 @@ export default function AnalyticsCod() {
             />
           </div>
 
-          <div className="space-y-8">
-            <BreakdownTable title="By City" keyLabel="City" rows={cod.byCity} />
-            <BreakdownTable title="By Courier" keyLabel="Courier" rows={cod.byCourier} />
-            <BreakdownTable title="By Value Band" keyLabel="Order Value" rows={cod.byValueBand} />
-          </div>
+          {cod.byCity.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Acceptance rate by city</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <BarChart
+                  data={cod.byCity.map((r) => ({ label: r.key, value: r.acceptanceRate }))}
+                  height={240}
+                  valueFormatter={(v) => formatPct(v, 0)}
+                  ariaLabel="COD acceptance rate by city"
+                />
+              </CardContent>
+            </Card>
+          )}
+
+          <BreakdownTable title="By City" keyLabel="City" rows={cod.byCity} />
+          <BreakdownTable title="By Courier" keyLabel="Courier" rows={cod.byCourier} />
+          <BreakdownTable title="By Value Band" keyLabel="Order Value" rows={cod.byValueBand} />
         </>
       )}
     </AnalyticsPage>

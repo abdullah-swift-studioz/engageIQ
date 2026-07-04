@@ -1,6 +1,23 @@
 import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
+import {
+  PageHeader,
+  buttonVariants,
+  Card,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Segments — EngageIQ' }]
 
@@ -43,83 +60,95 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export default function SegmentsPage() {
   const { segments, total, error } = useLoaderData<LoaderData>()
+  const dynamicCount = segments.filter((s) => s.isDynamic).length
+  const staticCount = segments.filter((s) => !s.isDynamic).length
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>Segments ({total})</h1>
-        <Link
-          to="/segments/new"
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            padding: '0.5rem 1rem',
-            borderRadius: '4px',
-            textDecoration: 'none',
-          }}
-        >
-          + New Segment
-        </Link>
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        eyebrow="Audience"
+        title="Segments"
+        description="Target the right customers with dynamic and static audiences."
+        actions={
+          <Link to="/segments/new" className={buttonVariants({ variant: 'primary' })}>
+            <Icons.Plus className="size-4" />
+            New segment
+          </Link>
+        }
+      />
 
       {error && (
-        <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {error}</div>
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error}
+        </p>
       )}
 
-      {segments.length === 0 && !error && (
-        <p style={{ color: '#666' }}>No segments yet. Create your first segment to start targeting customers.</p>
-      )}
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total segments" value={total} />
+        <StatCard label="Dynamic" value={dynamicCount} />
+        <StatCard label="Static" value={staticCount} />
+      </div>
 
-      {segments.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left' }}>
-              <th style={{ padding: '0.75rem 1rem' }}>Name</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Members</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Last Evaluated</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Type</th>
-            </tr>
-          </thead>
-          <tbody>
-            {segments.map((seg) => (
-              <tr
-                key={seg.id}
-                style={{ borderBottom: '1px solid #e5e7eb' }}
-              >
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <Link to={`/segments/${seg.id}`} style={{ color: '#2563eb' }}>
-                    {seg.name}
-                  </Link>
-                  {seg.description && (
-                    <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '2px' }}>
-                      {seg.description}
-                    </div>
-                  )}
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>{seg.memberCount.toLocaleString()}</td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  {seg.lastEvaluatedAt
-                    ? new Date(seg.lastEvaluatedAt).toLocaleString()
-                    : 'Never'}
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <span
-                    style={{
-                      background: seg.isDynamic ? '#dbeafe' : '#f3f4f6',
-                      color: seg.isDynamic ? '#1d4ed8' : '#374151',
-                      padding: '2px 8px',
-                      borderRadius: '9999px',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    {seg.isDynamic ? 'Dynamic' : 'Static'}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          {segments.length === 0 && !error ? (
+            <EmptyState
+              icon={<Icons.Filter className="size-6" />}
+              title="No segments yet"
+              description="Create your first segment to start targeting customers."
+              action={
+                <Link to="/segments/new" className={buttonVariants({ variant: 'primary' })}>
+                  New segment
+                </Link>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead>Last Evaluated</TableHead>
+                  <TableHead>Type</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {segments.length === 0 ? (
+                  <TableEmpty colSpan={4}>No segments.</TableEmpty>
+                ) : (
+                  segments.map((seg) => (
+                    <TableRow key={seg.id}>
+                      <TableCell>
+                        <Link
+                          to={`/segments/${seg.id}`}
+                          className="font-medium underline-offset-2 hover:underline"
+                        >
+                          {seg.name}
+                        </Link>
+                        {seg.description && (
+                          <div className="mt-0.5 text-xs text-neutral-500">{seg.description}</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="tabular">{seg.memberCount.toLocaleString()}</TableCell>
+                      <TableCell className="text-neutral-600">
+                        {seg.lastEvaluatedAt
+                          ? new Date(seg.lastEvaluatedAt).toLocaleString()
+                          : 'Never'}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={seg.isDynamic ? 'solid' : 'subtle'} dot>
+                          {seg.isDynamic ? 'Dynamic' : 'Static'}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -1,6 +1,23 @@
 import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
+import {
+  PageHeader,
+  buttonVariants,
+  Card,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Journeys — EngageIQ' }]
 
@@ -41,69 +58,111 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  DRAFT: '#6b7280',
-  ACTIVE: '#16a34a',
-  PAUSED: '#d97706',
-  ARCHIVED: '#9ca3af',
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  ACTIVE: 'solid',
+  DRAFT: 'subtle',
+  PAUSED: 'outline',
+  ARCHIVED: 'subtle',
 }
 
 export default function JourneysPage() {
   const { journeys, total, error } = useLoaderData<LoaderData>()
+  const active = journeys.filter((j) => j.status === 'ACTIVE').length
+  const drafts = journeys.filter((j) => j.status === 'DRAFT').length
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>Journeys ({total})</h1>
-        <Link to="/journeys/new" style={{ padding: '0.5rem 1rem', background: '#111', color: '#fff', textDecoration: 'none', borderRadius: '4px' }}>
-          + New Journey
-        </Link>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        eyebrow="Engage"
+        title="Journeys"
+        description="Automated, multi-step flows that enroll customers on a trigger and guide them to a goal."
+        actions={
+          <Link to="/journeys/new" className={buttonVariants({ variant: 'primary' })}>
+            <Icons.Plus className="size-4" />
+            New journey
+          </Link>
+        }
+      />
+
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+          <Icons.AlertCircle className="size-4 text-neutral-950" />
+          <p className="text-sm font-medium text-neutral-950">{error}</p>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total journeys" value={total} />
+        <StatCard label="Active" value={active} />
+        <StatCard label="Drafts" value={drafts} />
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {journeys.length === 0 && !error && (
-        <p style={{ color: '#6b7280' }}>No journeys yet. Create one to get started.</p>
-      )}
-
-      {journeys.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left' }}>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Name</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Trigger</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Status</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Enrolled</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Completed</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {journeys.map((j) => (
-              <tr key={j.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0' }}>
-                  <Link to={`/journeys/${j.id}`} style={{ color: '#111', fontWeight: 600 }}>
-                    {j.name}
-                  </Link>
-                  {j.description && <div style={{ color: '#6b7280', fontSize: '0.8rem' }}>{j.description}</div>}
-                </td>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0', color: '#374151' }}>{j.triggerType}</td>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0' }}>
-                  <span style={{ background: STATUS_COLORS[j.status] ?? '#6b7280', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
-                    {j.status}
-                  </span>
-                </td>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0' }}>{j.enrollmentCount}</td>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0' }}>{j.completionCount}</td>
-                <td style={{ padding: '0.75rem 1rem 0.75rem 0' }}>
-                  <Link to={`/journeys/${j.id}`} style={{ color: '#2563eb', marginRight: '0.75rem' }}>Edit</Link>
-                  <Link to={`/journeys/${j.id}/enrollments`} style={{ color: '#6b7280' }}>Enrollments</Link>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          {journeys.length === 0 && !error ? (
+            <EmptyState
+              icon={<Icons.Route className="size-6" />}
+              title="No journeys yet"
+              description="Create one to start enrolling customers on a trigger."
+              action={
+                <Link to="/journeys/new" className={buttonVariants({ variant: 'primary' })}>
+                  New journey
+                </Link>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Trigger</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Enrolled</TableHead>
+                  <TableHead>Completed</TableHead>
+                  <TableHead>Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {journeys.length === 0 ? (
+                  <TableEmpty colSpan={6}>No journeys.</TableEmpty>
+                ) : (
+                  journeys.map((j) => (
+                    <TableRow key={j.id}>
+                      <TableCell>
+                        <Link to={`/journeys/${j.id}`} className="font-medium underline-offset-2 hover:underline">
+                          {j.name}
+                        </Link>
+                        {j.description && <div className="text-xs text-neutral-500">{j.description}</div>}
+                      </TableCell>
+                      <TableCell className="text-neutral-600">{j.triggerType}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[j.status] ?? 'subtle'} dot>
+                          {j.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular">{j.enrollmentCount}</TableCell>
+                      <TableCell className="tabular">{j.completionCount}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <Link to={`/journeys/${j.id}`} className="text-sm font-medium underline-offset-2 hover:underline">
+                            Edit
+                          </Link>
+                          <Link
+                            to={`/journeys/${j.id}/enrollments`}
+                            className="text-sm text-neutral-500 underline-offset-2 hover:underline"
+                          >
+                            Enrollments
+                          </Link>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

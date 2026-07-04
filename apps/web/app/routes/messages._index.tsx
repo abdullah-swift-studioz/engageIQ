@@ -1,6 +1,23 @@
 import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
+import {
+  PageHeader,
+  buttonVariants,
+  Card,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Messages — EngageIQ' }]
 
@@ -37,13 +54,19 @@ interface LoaderData {
   error: string | null
 }
 
-const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-  QUEUED: { bg: '#f3f4f6', fg: '#374151' },
-  SENT: { bg: '#e0f2fe', fg: '#075985' },
-  DELIVERED: { bg: '#ddd6fe', fg: '#5b21b6' },
-  READ: { bg: '#dcfce7', fg: '#166534' },
-  FAILED: { bg: '#fee2e2', fg: '#991b1b' },
-  RECEIVED: { bg: '#fef9c3', fg: '#854d0e' },
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  QUEUED: 'subtle',
+  SENT: 'outline',
+  DELIVERED: 'solid',
+  READ: 'solid',
+  FAILED: 'outline',
+  RECEIVED: 'subtle',
+}
+
+function statusIcon(status: string) {
+  if (status === 'READ') return <Icons.CheckCircle className="size-3.5" />
+  if (status === 'FAILED') return <Icons.AlertCircle className="size-3.5" />
+  return null
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -70,72 +93,102 @@ function pct(n: number): string {
   return `${(n * 100).toFixed(1)}%`
 }
 
-function Stat({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '0.75rem 1rem', minWidth: 110 }}>
-      <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{value}</div>
-      <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{label}</div>
-    </div>
-  )
-}
-
 export default function MessagesPage() {
   const { messages, total, stats, error } = useLoaderData<LoaderData>()
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>Messages ({total})</h1>
-        <Link to="/whatsapp-templates" style={{ color: '#2563eb' }}>WhatsApp templates →</Link>
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        eyebrow="Channels"
+        title="Messages"
+        description="Delivery log of every outbound and inbound message across channels."
+        actions={
+          <Link to="/whatsapp-templates" className={buttonVariants({ variant: 'secondary' })}>
+            WhatsApp templates
+            <Icons.ArrowRight className="size-4" />
+          </Link>
+        }
+      />
 
-      {error && <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {error}</div>}
-
-      {stats && (
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
-          <Stat label="Outbound" value={stats.totalOutbound} />
-          <Stat label="Delivery rate" value={pct(stats.deliveryRate)} />
-          <Stat label="Read rate" value={pct(stats.readRate)} />
-          <Stat label="Failed" value={stats.failed} />
-          <Stat label="Inbound" value={stats.totalInbound} />
-          <Stat label="Opted out" value={stats.optOutCount} />
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+          <Icons.AlertCircle className="size-4 text-neutral-950" />
+          <p className="text-sm font-medium text-neutral-950">{error}</p>
         </div>
       )}
 
-      {messages.length === 0 && !error && <p style={{ color: '#666' }}>No messages yet.</p>}
-
-      {messages.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left' }}>
-              <th style={{ padding: '0.5rem 0.75rem' }}>When</th>
-              <th style={{ padding: '0.5rem 0.75rem' }}>Dir</th>
-              <th style={{ padding: '0.5rem 0.75rem' }}>Status</th>
-              <th style={{ padding: '0.5rem 0.75rem' }}>To / From</th>
-              <th style={{ padding: '0.5rem 0.75rem' }}>Body</th>
-              <th style={{ padding: '0.5rem 0.75rem' }}>Template</th>
-            </tr>
-          </thead>
-          <tbody>
-            {messages.map((m) => {
-              const c = STATUS_COLORS[m.status] ?? STATUS_COLORS.QUEUED
-              return (
-                <tr key={m.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                  <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.7rem', whiteSpace: 'nowrap' }}>{new Date(m.createdAt).toLocaleString()}</td>
-                  <td style={{ padding: '0.5rem 0.75rem' }}>{m.direction === 'OUTBOUND' ? '↑' : '↓'}</td>
-                  <td style={{ padding: '0.5rem 0.75rem' }}>
-                    <span style={{ background: c!.bg, color: c!.fg, padding: '2px 8px', borderRadius: '9999px', fontSize: '0.7rem' }}>{m.status}</span>
-                    {m.errorTitle && <div style={{ color: '#991b1b', fontSize: '0.65rem' }}>{m.errorTitle}</div>}
-                  </td>
-                  <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.7rem' }}>{m.direction === 'OUTBOUND' ? m.toPhone : m.fromPhone}</td>
-                  <td style={{ padding: '0.5rem 0.75rem', maxWidth: 320, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.body}</td>
-                  <td style={{ padding: '0.5rem 0.75rem', fontSize: '0.7rem', color: '#6b7280' }}>{m.template?.name ?? '—'}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+      {stats && (
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <StatCard label="Outbound" value={stats.totalOutbound} />
+          <StatCard label="Delivery rate" value={pct(stats.deliveryRate)} />
+          <StatCard label="Read rate" value={pct(stats.readRate)} />
+          <StatCard label="Failed" value={stats.failed} />
+          <StatCard label="Inbound" value={stats.totalInbound} />
+          <StatCard label="Opted out" value={stats.optOutCount} />
+        </div>
       )}
+
+      <Card>
+        <CardContent className="pt-6">
+          {messages.length === 0 && !error ? (
+            <EmptyState
+              icon={<Icons.Inbox className="size-6" />}
+              title="No messages yet"
+              description="Sent and received messages will appear here."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>When</TableHead>
+                  <TableHead>Dir</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>To / From</TableHead>
+                  <TableHead>Body</TableHead>
+                  <TableHead>Template</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {messages.length === 0 ? (
+                  <TableEmpty colSpan={6}>No messages.</TableEmpty>
+                ) : (
+                  messages.map((m) => (
+                    <TableRow key={m.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-neutral-600">
+                        {new Date(m.createdAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell aria-label={m.direction === 'OUTBOUND' ? 'Outbound' : 'Inbound'}>
+                        {m.direction === 'OUTBOUND' ? (
+                          <Icons.ArrowUpRight className="size-4 text-neutral-600" />
+                        ) : (
+                          <Icons.ArrowDownRight className="size-4 text-neutral-600" />
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[m.status] ?? 'subtle'} dot>
+                          {statusIcon(m.status)}
+                          {m.status}
+                        </Badge>
+                        {m.errorTitle && (
+                          <div className="mt-0.5 flex items-center gap-1 text-2xs text-neutral-500">
+                            <Icons.AlertCircle className="size-3" />
+                            {m.errorTitle}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-xs text-neutral-600">
+                        {m.direction === 'OUTBOUND' ? m.toPhone : m.fromPhone}
+                      </TableCell>
+                      <TableCell className="max-w-[320px] truncate">{m.body}</TableCell>
+                      <TableCell className="text-xs text-neutral-500">{m.template?.name ?? '—'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

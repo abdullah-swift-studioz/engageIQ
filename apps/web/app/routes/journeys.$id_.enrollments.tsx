@@ -1,6 +1,22 @@
-import { useLoaderData } from '@remix-run/react'
+import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardContent,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Enrollments — EngageIQ' }]
 
@@ -44,67 +60,106 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   }
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: '#2563eb',
-  COMPLETED: '#16a34a',
-  EXITED: '#d97706',
-  FAILED: '#dc2626',
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  ACTIVE: 'solid',
+  COMPLETED: 'solid',
+  EXITED: 'outline',
+  FAILED: 'outline',
+}
+
+function statusIcon(status: string) {
+  if (status === 'COMPLETED') return <Icons.CheckCircle className="size-3.5" />
+  if (status === 'FAILED') return <Icons.AlertCircle className="size-3.5" />
+  return null
 }
 
 export default function EnrollmentsPage() {
   const { journeyId, enrollments, total, error } = useLoaderData<LoaderData>()
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ marginBottom: '1rem' }}>
-        <a href={`/journeys/${journeyId}`} style={{ color: '#2563eb', textDecoration: 'none', fontSize: '0.9rem' }}>
-          ← Back to Journey
-        </a>
-      </div>
-      <h1 style={{ marginBottom: '1.5rem' }}>Enrollments ({total})</h1>
+    <div className="flex flex-col gap-6 p-6">
+      <Breadcrumb
+        items={[
+          { label: 'Journeys', href: '/journeys' },
+          { label: 'Journey', href: `/journeys/${journeyId}` },
+          { label: 'Enrollments' },
+        ]}
+      />
+      <PageHeader
+        eyebrow="Journey"
+        title="Enrollments"
+        description={`${total} customer${total === 1 ? '' : 's'} enrolled in this journey.`}
+      />
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-
-      {enrollments.length === 0 && !error && (
-        <p style={{ color: '#6b7280' }}>No enrollments yet.</p>
+      {error && (
+        <div className="flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3">
+          <Icons.AlertCircle className="size-4 text-neutral-950" />
+          <p className="text-sm font-medium text-neutral-950">{error}</p>
+        </div>
       )}
 
-      {enrollments.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left' }}>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Customer ID</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Status</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Enrolled At</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Last Step At</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Completed / Exited</th>
-              <th style={{ padding: '0.5rem 1rem 0.5rem 0' }}>Current Step</th>
-            </tr>
-          </thead>
-          <tbody>
-            {enrollments.map((e) => (
-              <tr key={e.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0' }}>
-                  <a href={`/customers/${e.customerId}`} style={{ color: '#2563eb' }}>{e.customerId.slice(0, 12)}…</a>
-                </td>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0' }}>
-                  <span style={{ background: STATUS_COLORS[e.status] ?? '#6b7280', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.75rem' }}>
-                    {e.status}
-                  </span>
-                </td>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0' }}>{new Date(e.enrolledAt).toLocaleString()}</td>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0' }}>{e.lastStepAt ? new Date(e.lastStepAt).toLocaleString() : '—'}</td>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0' }}>
-                  {e.completedAt ? new Date(e.completedAt).toLocaleString() : e.exitedAt ? new Date(e.exitedAt).toLocaleString() : '—'}
-                </td>
-                <td style={{ padding: '0.6rem 1rem 0.6rem 0', color: '#6b7280', fontSize: '0.8rem' }}>
-                  {e.currentStepId ? e.currentStepId.slice(0, 12) + '…' : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          {enrollments.length === 0 && !error ? (
+            <EmptyState
+              icon={<Icons.Users className="size-6" />}
+              title="No enrollments yet"
+              description="Customers appear here once they match the journey trigger."
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Customer ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Enrolled At</TableHead>
+                  <TableHead>Last Step At</TableHead>
+                  <TableHead>Completed / Exited</TableHead>
+                  <TableHead>Current Step</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {enrollments.length === 0 ? (
+                  <TableEmpty colSpan={6}>No enrollments.</TableEmpty>
+                ) : (
+                  enrollments.map((e) => (
+                    <TableRow key={e.id}>
+                      <TableCell>
+                        <Link
+                          to={`/customers/${e.customerId}`}
+                          className="font-mono text-sm underline-offset-2 hover:underline"
+                        >
+                          {e.customerId.slice(0, 12)}…
+                        </Link>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[e.status] ?? 'subtle'} dot>
+                          {statusIcon(e.status)}
+                          {e.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-neutral-600">{new Date(e.enrolledAt).toLocaleString()}</TableCell>
+                      <TableCell className="text-neutral-600">
+                        {e.lastStepAt ? new Date(e.lastStepAt).toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell className="text-neutral-600">
+                        {e.completedAt
+                          ? new Date(e.completedAt).toLocaleString()
+                          : e.exitedAt
+                            ? new Date(e.exitedAt).toLocaleString()
+                            : '—'}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs text-neutral-500">
+                        {e.currentStepId ? e.currentStepId.slice(0, 12) + '…' : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

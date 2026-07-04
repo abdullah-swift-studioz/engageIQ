@@ -3,6 +3,8 @@ import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import type { CohortResult } from '@engageiq/shared'
 import { AnalyticsPage, ErrorBanner, fetchAnalytics, formatNumber, formatPct } from '../components/analytics/ui'
+import { Card, CardContent, EmptyState, Icons } from '~/components/ui'
+import { Heatmap } from '~/components/charts'
 
 export const meta: MetaFunction = () => [{ title: 'Cohort Retention — EngageIQ' }]
 
@@ -19,19 +21,6 @@ export async function loader(_args: LoaderFunctionArgs) {
   return json<LoaderData>({ result: data, error })
 }
 
-// Heat-map background: stronger green for higher retention, gray for null (no data yet).
-function heatStyle(value: number | null): React.CSSProperties {
-  if (value == null) return { backgroundColor: '#f3f4f6', color: '#9ca3af' }
-  // Clamp 0–1, blend white → emerald-600 (#059669) on a perceptual-ish ramp.
-  const t = Math.max(0, Math.min(1, value))
-  // Lightness from ~96% (white-ish) down to ~32% as value rises.
-  const r = Math.round(236 - t * (236 - 5))
-  const g = Math.round(253 - t * (253 - 150))
-  const b = Math.round(245 - t * (245 - 105))
-  const textColor = t > 0.55 ? '#ffffff' : '#065f46'
-  return { backgroundColor: `rgb(${r}, ${g}, ${b})`, color: textColor }
-}
-
 export default function AnalyticsCohort() {
   const { result, error } = useLoaderData<typeof loader>()
   const periods = result?.periods ?? 12
@@ -46,57 +35,26 @@ export default function AnalyticsCohort() {
       <ErrorBanner error={error} />
 
       {result && rows.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white py-16 text-center">
-          <p className="text-sm font-medium text-gray-900">No cohort data yet</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Once this store has non-cancelled orders linked to customers, retention cohorts will appear here.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Icons.Users />}
+          title="No cohort data yet"
+          description="Once this store has non-cancelled orders linked to customers, retention cohorts will appear here."
+        />
       )}
 
       {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="sticky left-0 z-10 bg-gray-50 px-3 py-2 text-left font-medium text-gray-600">
-                  Cohort
-                </th>
-                <th className="px-3 py-2 text-right font-medium text-gray-600">Size</th>
-                {periodHeaders.map((i) => (
-                  <th key={i} className="px-3 py-2 text-center font-medium text-gray-600">
-                    M{i}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.cohort} className="border-b border-gray-100 last:border-0">
-                  <td className="sticky left-0 z-10 bg-white px-3 py-2 font-medium text-gray-900">
-                    {row.cohort}
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                    {formatNumber(row.cohortSize)}
-                  </td>
-                  {periodHeaders.map((i) => {
-                    const value = row.retention[i] ?? null
-                    return (
-                      <td
-                        key={i}
-                        className="px-3 py-2 text-center tabular-nums"
-                        style={heatStyle(value)}
-                        title={`${row.cohort} · M${i}`}
-                      >
-                        {value == null ? '' : formatPct(value, 0)}
-                      </td>
-                    )
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardContent className="overflow-x-auto pt-6">
+            <Heatmap
+              rowLabels={rows.map((row) => `${row.cohort} · ${formatNumber(row.cohortSize)}`)}
+              colLabels={periodHeaders.map((i) => `M${i}`)}
+              values={rows.map((row) => periodHeaders.map((i) => row.retention[i] ?? null))}
+              max={1}
+              valueFormatter={(v) => formatPct(v, 0)}
+              ariaLabel="Cohort retention heatmap"
+            />
+          </CardContent>
+        </Card>
       )}
     </AnalyticsPage>
   )

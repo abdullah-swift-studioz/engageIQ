@@ -10,6 +10,19 @@ import {
   formatPct,
   formatPkr,
 } from '../components/analytics/ui'
+import {
+  Card,
+  CardContent,
+  Button,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Product Retention — EngageIQ' }]
 
@@ -63,77 +76,75 @@ export default function AnalyticsProducts() {
     >
       <ErrorBanner error={error} />
 
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <p className="text-sm text-gray-500">{formatComputedAt(result?.computedAt ?? null)}</p>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-neutral-500">{formatComputedAt(result?.computedAt ?? null)}</p>
         <Form method="post">
-          <button
-            type="submit"
-            disabled={isRecomputing}
-            className="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <Button type="submit" isLoading={isRecomputing} leftIcon={<Icons.Sparkles />}>
             {isRecomputing ? 'Recomputing…' : 'Recompute'}
-          </button>
+          </Button>
         </Form>
       </div>
 
       {actionData?.enqueued && (
-        <div className="mb-6 rounded-md border border-green-200 bg-green-50 px-4 py-3">
-          <p className="text-sm font-medium text-green-700">
+        <div className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3 shadow-xs">
+          <Icons.CheckCircle className="mt-0.5 size-4 shrink-0 text-neutral-700" />
+          <p className="text-sm font-medium text-neutral-900">
             Recompute queued. Refresh in a moment to see updated metrics.
           </p>
         </div>
       )}
       {actionData?.error && (
-        <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-sm font-medium text-red-700">{actionData.error}</p>
+        <div className="flex items-start gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-3">
+          <Icons.AlertCircle className="mt-0.5 size-4 shrink-0 text-neutral-700" />
+          <p className="text-sm font-medium text-neutral-900">{actionData.error}</p>
         </div>
       )}
 
       {products.length === 0 && !error && (
-        <div className="rounded-lg border border-dashed border-gray-300 bg-white py-16 text-center">
-          <p className="text-sm font-medium text-gray-900">No product metrics yet</p>
-          <p className="mt-1 text-sm text-gray-500">
-            Either this store has no products, or the analytics job has not run yet. Click
-            “Recompute” to queue it.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Icons.Inbox />}
+          title="No product metrics yet"
+          description="Either this store has no products, or the analytics job has not run yet. Click “Recompute” to queue it."
+        />
       )}
 
       {products.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-200 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">#</th>
-                <th className="px-4 py-3 text-left font-medium text-gray-500">Product</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Repurchase 90d</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Cross-sell</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Return rate</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Avg buyer LTV</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Days to 2nd</th>
-                <th className="px-4 py-3 text-right font-medium text-gray-500">Retention value</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {products.map((p, i) => (
-                <tr key={p.productId} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-gray-400">{i + 1}</td>
-                  <td className="px-4 py-3 font-medium text-gray-900">{p.title}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{formatPct(p.repurchaseRate90d)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{formatPct(p.crossSellRate)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{formatPct(p.returnRate)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">{formatPkr(p.avgBuyerLtv)}</td>
-                  <td className="px-4 py-3 text-right text-gray-700">
-                    {formatDays(p.avgDaysToSecondPurchase)}
-                  </td>
-                  <td className="px-4 py-3 text-right font-semibold text-gray-900">
-                    {p.retentionValue == null ? '—' : formatNumber(Math.round(p.retentionValue))}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <Card>
+          <CardContent className="overflow-x-auto pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>#</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead className="text-right">Repurchase 90d</TableHead>
+                  <TableHead className="text-right">Cross-sell</TableHead>
+                  <TableHead className="text-right">Return rate</TableHead>
+                  <TableHead className="text-right">Avg buyer LTV</TableHead>
+                  <TableHead className="text-right">Days to 2nd</TableHead>
+                  <TableHead className="text-right">Retention value</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {products.map((p, i) => (
+                  <TableRow key={p.productId}>
+                    <TableCell className="text-neutral-400">{i + 1}</TableCell>
+                    <TableCell className="font-medium text-neutral-900">{p.title}</TableCell>
+                    <TableCell className="tabular text-right text-neutral-700">{formatPct(p.repurchaseRate90d)}</TableCell>
+                    <TableCell className="tabular text-right text-neutral-700">{formatPct(p.crossSellRate)}</TableCell>
+                    <TableCell className="tabular text-right text-neutral-700">{formatPct(p.returnRate)}</TableCell>
+                    <TableCell className="tabular text-right text-neutral-700">{formatPkr(p.avgBuyerLtv)}</TableCell>
+                    <TableCell className="tabular text-right text-neutral-700">
+                      {formatDays(p.avgDaysToSecondPurchase)}
+                    </TableCell>
+                    <TableCell className="tabular text-right font-semibold text-neutral-950">
+                      {p.retentionValue == null ? '—' : formatNumber(Math.round(p.retentionValue))}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
     </AnalyticsPage>
   )

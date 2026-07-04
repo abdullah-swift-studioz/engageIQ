@@ -1,6 +1,22 @@
-import { Form, useLoaderData, useActionData } from '@remix-run/react'
+import { Form, Link, useLoaderData, useActionData, useNavigation } from '@remix-run/react'
 import type { LoaderFunctionArgs, ActionFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Badge,
+  Button,
+  buttonVariants,
+  FormField,
+  Input,
+  Textarea,
+  Select,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Journey — EngageIQ' }]
 
@@ -115,128 +131,187 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return json<ActionData>({ error: 'Unknown intent', success: null })
 }
 
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  ACTIVE: 'solid',
+  DRAFT: 'subtle',
+  PAUSED: 'outline',
+  ARCHIVED: 'subtle',
+}
+
 export default function JourneyDetailPage() {
   const { journey, error } = useLoaderData<LoaderData>()
   const actionData = useActionData<ActionData>()
+  const nav = useNavigation()
 
   if (error || !journey) {
-    return <div style={{ padding: '2rem', fontFamily: 'monospace' }}><p style={{ color: 'red' }}>{error ?? 'Journey not found'}</p></div>
+    return (
+      <div className="flex flex-col gap-4 p-6">
+        <Breadcrumb items={[{ label: 'Journeys', href: '/journeys' }, { label: 'Not found' }]} />
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error ?? 'Journey not found'}
+        </p>
+      </div>
+    )
   }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: '700px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>{journey.name}</h1>
-        <span style={{ fontSize: '0.85rem', background: journey.status === 'ACTIVE' ? '#16a34a' : '#6b7280', color: '#fff', padding: '2px 10px', borderRadius: '12px' }}>
-          {journey.status}
-        </span>
-      </div>
+    <div className="mx-auto flex max-w-[760px] flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'Journeys', href: '/journeys' }, { label: journey.name }]} />
+      <PageHeader
+        eyebrow="Journey"
+        title={journey.name}
+        description={journey.description ?? undefined}
+        actions={
+          <Badge variant={STATUS_VARIANT[journey.status] ?? 'subtle'} dot>
+            {journey.status}
+          </Badge>
+        }
+      />
 
-      {actionData?.error && <p style={{ color: 'red' }}>{actionData.error}</p>}
-      {actionData?.success && <p style={{ color: 'green' }}>{actionData.success}</p>}
+      {actionData?.error && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {actionData.error}
+        </p>
+      )}
+      {actionData?.success && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.CheckCircle className="size-4" />
+          {actionData.success}
+        </p>
+      )}
 
-      <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div className="flex flex-wrap items-center gap-3">
         {journey.status === 'DRAFT' && (
           <Form method="post">
             <input type="hidden" name="intent" value="activate" />
-            <button type="submit" style={{ padding: '0.4rem 1rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            <Button type="submit" size="sm">
               Activate
-            </button>
+            </Button>
           </Form>
         )}
         {journey.status === 'ACTIVE' && (
           <Form method="post">
             <input type="hidden" name="intent" value="pause" />
-            <button type="submit" style={{ padding: '0.4rem 1rem', background: '#d97706', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+            <Button type="submit" size="sm" variant="secondary">
               Pause
-            </button>
+            </Button>
           </Form>
         )}
-        <a href={`/journeys/${journey.id}/enrollments`} style={{ padding: '0.4rem 1rem', background: '#f3f4f6', color: '#111', textDecoration: 'none', borderRadius: '4px' }}>
+        <Link
+          to={`/journeys/${journey.id}/enrollments`}
+          className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+        >
           View Enrollments ({journey.enrollmentCount})
-        </a>
+        </Link>
         {/* lane:journey START — entry point to the visual builder (canonical 6.1) */}
-        <a href={`/journeys/builder/${journey.id}`} style={{ padding: '0.4rem 1rem', background: '#4f46e5', color: '#fff', textDecoration: 'none', borderRadius: '4px' }}>
+        <Link
+          to={`/journeys/builder/${journey.id}`}
+          className={buttonVariants({ variant: 'primary', size: 'sm' })}
+        >
+          <Icons.Workflow className="size-4" />
           Open Visual Builder
-        </a>
+        </Link>
         {/* lane:journey END */}
       </div>
 
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Details</h2>
-        <dl style={{ display: 'grid', gridTemplateColumns: '160px 1fr', gap: '0.4rem 0', fontSize: '0.9rem' }}>
-          <dt style={{ color: '#6b7280' }}>Trigger</dt><dd>{journey.triggerType}</dd>
-          <dt style={{ color: '#6b7280' }}>Trigger Config</dt><dd><code>{JSON.stringify(journey.triggerConfig)}</code></dd>
-          <dt style={{ color: '#6b7280' }}>Re-Entry Rule</dt><dd>{journey.reEntryRule}</dd>
-          <dt style={{ color: '#6b7280' }}>Exit Trigger</dt><dd>{journey.exitTrigger ?? '—'}</dd>
-          <dt style={{ color: '#6b7280' }}>Enrolled</dt><dd>{journey.enrollmentCount}</dd>
-          <dt style={{ color: '#6b7280' }}>Completed</dt><dd>{journey.completionCount}</dd>
-        </dl>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <dl className="grid grid-cols-[160px_1fr] gap-y-2 text-sm">
+            <dt className="text-neutral-500">Trigger</dt>
+            <dd className="text-neutral-950">{journey.triggerType}</dd>
+            <dt className="text-neutral-500">Trigger Config</dt>
+            <dd className="font-mono text-neutral-950">{JSON.stringify(journey.triggerConfig)}</dd>
+            <dt className="text-neutral-500">Re-Entry Rule</dt>
+            <dd className="text-neutral-950">{journey.reEntryRule}</dd>
+            <dt className="text-neutral-500">Exit Trigger</dt>
+            <dd className="text-neutral-950">{journey.exitTrigger ?? '—'}</dd>
+            <dt className="text-neutral-500">Enrolled</dt>
+            <dd className="tabular text-neutral-950">{journey.enrollmentCount}</dd>
+            <dt className="text-neutral-500">Completed</dt>
+            <dd className="tabular text-neutral-950">{journey.completionCount}</dd>
+          </dl>
+        </CardContent>
+      </Card>
 
-      <section style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Steps ({journey.steps.length})</h2>
-        {journey.steps.length === 0 && <p style={{ color: '#6b7280' }}>No steps yet.</p>}
-        {journey.steps.map((step, i) => (
-          <div key={step.id} style={{ border: '1px solid #e5e7eb', borderRadius: '4px', padding: '0.75rem', marginBottom: '0.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem' }}>
-              <strong>{i + 1}. {step.stepType}</strong>
-              {step.label && <span style={{ color: '#6b7280', fontSize: '0.8rem' }}>label: {step.label}</span>}
+      <Card>
+        <CardHeader>
+          <CardTitle>Steps ({journey.steps.length})</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {journey.steps.length === 0 && <p className="text-sm text-neutral-500">No steps yet.</p>}
+          {journey.steps.map((step, i) => (
+            <div key={step.id} className="rounded-lg border border-neutral-200 p-3">
+              <div className="mb-1 flex items-center justify-between">
+                <strong className="text-sm text-neutral-950">
+                  {i + 1}. {step.stepType}
+                </strong>
+                {step.label && <span className="text-xs text-neutral-500">label: {step.label}</span>}
+              </div>
+              <code className="font-mono text-xs text-neutral-600">{JSON.stringify(step.config)}</code>
+              {step.parentStepId && (
+                <div className="text-2xs text-neutral-400">parent: {step.parentStepId}</div>
+              )}
             </div>
-            <code style={{ fontSize: '0.8rem', color: '#374151' }}>{JSON.stringify(step.config)}</code>
-            {step.parentStepId && <div style={{ color: '#9ca3af', fontSize: '0.75rem' }}>parent: {step.parentStepId}</div>}
-          </div>
-        ))}
-      </section>
+          ))}
+        </CardContent>
+      </Card>
 
       {journey.status === 'DRAFT' && (
-        <section>
-          <h2 style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Edit Journey</h2>
-          <Form method="post" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <input type="hidden" name="intent" value="update" />
-            <label>
-              Name
-              <input name="name" defaultValue={journey.name} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px' }} />
-            </label>
-            <label>
-              Description
-              <textarea name="description" defaultValue={journey.description ?? ''} rows={2} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px' }} />
-            </label>
-            <label>
-              Trigger Type
-              <select name="triggerType" defaultValue={journey.triggerType} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px' }}>
-                <option value="order_placed">order_placed</option>
-                <option value="segment_entered">segment_entered</option>
-                <option value="custom_event">custom_event</option>
-                <option value="scheduled">scheduled</option>
-              </select>
-            </label>
-            <label>
-              Trigger Config (JSON)
-              <textarea name="triggerConfig" defaultValue={JSON.stringify(journey.triggerConfig)} rows={2} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px', fontFamily: 'monospace', fontSize: '0.85rem' }} />
-            </label>
-            <label>
-              Re-Entry Rule
-              <select name="reEntryRule" defaultValue={journey.reEntryRule} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px' }}>
-                <option value="DISALLOW">DISALLOW</option>
-                <option value="ALLOW">ALLOW</option>
-                <option value="RE_ENROLL_AFTER_EXIT">RE_ENROLL_AFTER_EXIT</option>
-              </select>
-            </label>
-            <label>
-              Exit Trigger
-              <select name="exitTrigger" defaultValue={journey.exitTrigger ?? ''} style={{ display: 'block', width: '100%', padding: '0.4rem', marginTop: '0.25rem', border: '1px solid #d1d5db', borderRadius: '4px' }}>
-                <option value="">None</option>
-                <option value="order_placed">order_placed</option>
-                <option value="segment_entered">segment_entered</option>
-                <option value="custom_event">custom_event</option>
-              </select>
-            </label>
-            <button type="submit" style={{ padding: '0.4rem 1.5rem', background: '#111', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', alignSelf: 'flex-start' }}>
-              Save Changes
-            </button>
-          </Form>
-        </section>
+        <Card>
+          <CardHeader>
+            <CardTitle>Edit Journey</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Form method="post" className="space-y-4">
+              <input type="hidden" name="intent" value="update" />
+              <FormField label="Name">
+                <Input name="name" defaultValue={journey.name} />
+              </FormField>
+              <FormField label="Description">
+                <Textarea name="description" defaultValue={journey.description ?? ''} rows={2} />
+              </FormField>
+              <FormField label="Trigger type">
+                <Select name="triggerType" defaultValue={journey.triggerType}>
+                  <option value="order_placed">order_placed</option>
+                  <option value="segment_entered">segment_entered</option>
+                  <option value="custom_event">custom_event</option>
+                  <option value="scheduled">scheduled</option>
+                </Select>
+              </FormField>
+              <FormField label="Trigger config (JSON)">
+                <Textarea
+                  name="triggerConfig"
+                  defaultValue={JSON.stringify(journey.triggerConfig)}
+                  rows={2}
+                  className="font-mono"
+                />
+              </FormField>
+              <FormField label="Re-entry rule">
+                <Select name="reEntryRule" defaultValue={journey.reEntryRule}>
+                  <option value="DISALLOW">DISALLOW</option>
+                  <option value="ALLOW">ALLOW</option>
+                  <option value="RE_ENROLL_AFTER_EXIT">RE_ENROLL_AFTER_EXIT</option>
+                </Select>
+              </FormField>
+              <FormField label="Exit trigger">
+                <Select name="exitTrigger" defaultValue={journey.exitTrigger ?? ''}>
+                  <option value="">None</option>
+                  <option value="order_placed">order_placed</option>
+                  <option value="segment_entered">segment_entered</option>
+                  <option value="custom_event">custom_event</option>
+                </Select>
+              </FormField>
+              <Button type="submit" isLoading={nav.state === 'submitting'}>
+                Save Changes
+              </Button>
+            </Form>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

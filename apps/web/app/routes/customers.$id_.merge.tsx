@@ -2,6 +2,22 @@ import { Form, Link, useLoaderData, useActionData } from '@remix-run/react'
 import type { LoaderFunctionArgs, ActionFunctionArgs } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
 import type { EnrichedCustomerProfile } from '@engageiq/shared'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardContent,
+  Button,
+  buttonVariants,
+  Input,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  Icons,
+} from '~/components/ui'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -183,47 +199,26 @@ function ProfileCard({
   label: string
 }) {
   return (
-    <div
-      style={{
-        flex: 1,
-        border: '1px solid #e5e7eb',
-        borderRadius: 8,
-        padding: '1rem',
-        background: '#fff',
-      }}
-    >
-      <p
-        style={{
-          fontSize: 11,
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          color: '#6b7280',
-          marginBottom: 8,
-        }}
-      >
-        {label}
-      </p>
-      <p style={{ fontWeight: 600, fontSize: 16, color: '#111827', marginBottom: 4 }}>
-        {customerDisplayName(customer)}
-      </p>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 2 }}>{customer.email ?? '—'}</p>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 8 }}>{customer.phone ?? '—'}</p>
-      <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-        <tbody>
+    <Card className="flex-1">
+      <CardContent className="flex flex-col gap-1">
+        <p className="text-2xs font-medium uppercase tracking-wider text-neutral-500">{label}</p>
+        <p className="text-base font-semibold text-neutral-950">{customerDisplayName(customer)}</p>
+        <p className="text-sm text-neutral-500">{customer.email ?? '—'}</p>
+        <p className="mb-2 text-sm text-neutral-500">{customer.phone ?? '—'}</p>
+        <dl className="flex flex-col gap-1 text-sm">
           {[
             ['Total Orders', String(customer.totalOrders ?? 0)],
             ['Total Spent', fmtPkr(customer.totalSpent)],
             ['Created', fmtDate(customer.createdAt)],
           ].map(([k, v]) => (
-            <tr key={k}>
-              <td style={{ color: '#6b7280', paddingRight: 8, paddingBottom: 4 }}>{k}</td>
-              <td style={{ fontWeight: 500, color: '#111827', paddingBottom: 4 }}>{v}</td>
-            </tr>
+            <div key={k} className="flex items-center gap-2">
+              <dt className="w-28 shrink-0 text-neutral-500">{k}</dt>
+              <dd className="font-medium text-neutral-950">{v}</dd>
+            </div>
           ))}
-        </tbody>
-      </table>
-    </div>
+        </dl>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -237,23 +232,13 @@ export default function CustomerMergePage() {
   // ── Error: could not load base customer ──────────────────────────────────
   if (!baseCustomer) {
     return (
-      <div style={{ maxWidth: 720, margin: '3rem auto', padding: '0 1rem' }}>
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 6,
-            padding: '0.75rem 1rem',
-            marginBottom: '1rem',
-          }}
-        >
-          <p style={{ color: '#b91c1c', fontSize: 14 }}>{error ?? 'Profile not found.'}</p>
-        </div>
-        <Link
-          to="/customers"
-          style={{ fontSize: 13, color: '#2563eb', textDecoration: 'underline' }}
-        >
-          ← Back to Customers
+      <div className="flex flex-col gap-4 p-6">
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error ?? 'Profile not found.'}
+        </p>
+        <Link to="/customers" className={buttonVariants({ variant: 'secondary' })}>
+          Back to Customers
         </Link>
       </div>
     )
@@ -271,81 +256,49 @@ export default function CustomerMergePage() {
     const secondaryLabel = canonicalIsBase ? 'Secondary (will be merged)' : 'Canonical (older — will be kept)'
 
     return (
-      <div style={{ maxWidth: 800, margin: '3rem auto', padding: '0 1rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <Link
-            to={`/customers/${baseId}`}
-            style={{ fontSize: 13, color: '#2563eb', textDecoration: 'underline' }}
-          >
-            ← Back to customer
-          </Link>
-        </div>
+      <div className="flex flex-col gap-6 p-6">
+        <Breadcrumb
+          items={[
+            { label: 'Customers', href: '/customers' },
+            { label: customerDisplayName(baseCustomer), href: `/customers/${baseId}` },
+            { label: 'Merge' },
+          ]}
+        />
 
-        <h1 style={{ fontSize: 20, fontWeight: 600, color: '#111827', marginBottom: 4 }}>
-          Confirm Profile Merge
-        </h1>
-        <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
-          Review both profiles below. The older profile (by creation date) will become the
-          canonical record. All data from the secondary profile will be merged into it.
-        </p>
+        <PageHeader
+          eyebrow="Customer"
+          title="Confirm Profile Merge"
+          description="Review both profiles below. The older profile (by creation date) will become the canonical record. All data from the secondary profile will be merged into it."
+        />
 
         {/* Side-by-side preview */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: 24 }}>
+        <div className="flex flex-col gap-4 sm:flex-row">
           <ProfileCard customer={baseCustomer} label={canonicalIsBase ? canonicalLabel : secondaryLabel} />
           <ProfileCard customer={selectedTarget} label={canonicalIsBase ? secondaryLabel : canonicalLabel} />
         </div>
 
-        <div
-          style={{
-            background: '#fffbeb',
-            border: '1px solid #fcd34d',
-            borderRadius: 6,
-            padding: '0.75rem 1rem',
-            marginBottom: 20,
-            fontSize: 13,
-            color: '#92400e',
-          }}
-        >
-          ⚠️ This action cannot be undone. The secondary profile will be marked as merged and
-          all its identifiers, orders, and events will be attributed to the canonical profile.
+        <div className="flex items-start gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-3">
+          <Icons.AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <p className="text-sm text-neutral-700">
+            This action cannot be undone. The secondary profile will be marked as merged and all its
+            identifiers, orders, and events will be attributed to the canonical profile.
+          </p>
         </div>
 
         {/* Action error */}
         {actionData?.error && (
-          <div
-            style={{
-              background: '#fef2f2',
-              border: '1px solid #fecaca',
-              borderRadius: 6,
-              padding: '0.75rem 1rem',
-              marginBottom: 16,
-            }}
-          >
-            <p style={{ color: '#b91c1c', fontSize: 14 }}>{actionData.error}</p>
-          </div>
+          <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+            <Icons.AlertCircle className="size-4" />
+            {actionData.error}
+          </p>
         )}
 
-        <Form method="post" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <Form method="post" className="flex items-center gap-3">
           <input type="hidden" name="targetCustomerId" value={selectedTarget.id} />
-          <button
-            type="submit"
-            style={{
-              background: '#dc2626',
-              color: '#fff',
-              border: 'none',
-              borderRadius: 6,
-              padding: '0.5rem 1.25rem',
-              fontSize: 14,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
+          <Button type="submit" variant="destructive">
             Confirm merge
-          </button>
-          <Link
-            to={`/customers/${baseId}`}
-            style={{ fontSize: 13, color: '#6b7280', textDecoration: 'underline' }}
-          >
+          </Button>
+          <Link to={`/customers/${baseId}`} className={buttonVariants({ variant: 'ghost' })}>
             Cancel
           </Link>
         </Form>
@@ -355,149 +308,88 @@ export default function CustomerMergePage() {
 
   // ── State 1: Search ──────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 720, margin: '3rem auto', padding: '0 1rem' }}>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link
-          to={`/customers/${baseId}`}
-          style={{ fontSize: 13, color: '#2563eb', textDecoration: 'underline' }}
-        >
-          ← Back to customer
-        </Link>
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <Breadcrumb
+        items={[
+          { label: 'Customers', href: '/customers' },
+          { label: customerDisplayName(baseCustomer), href: `/customers/${baseId}` },
+          { label: 'Merge' },
+        ]}
+      />
 
-      <h1 style={{ fontSize: 20, fontWeight: 600, color: '#111827', marginBottom: 4 }}>
-        Merge Profile
-      </h1>
-      <p style={{ fontSize: 13, color: '#6b7280', marginBottom: 24 }}>
-        Search for another customer profile to merge with{' '}
-        <strong>{customerDisplayName(baseCustomer)}</strong> ({baseCustomer.email ?? baseId}).
-      </p>
+      <PageHeader
+        eyebrow="Customer"
+        title="Merge Profile"
+        description={
+          <>
+            Search for another customer profile to merge with{' '}
+            <strong className="font-semibold text-neutral-700">{customerDisplayName(baseCustomer)}</strong> (
+            {baseCustomer.email ?? baseId}).
+          </>
+        }
+      />
 
       {/* Loader error (non-fatal) */}
       {error && (
-        <div
-          style={{
-            background: '#fef2f2',
-            border: '1px solid #fecaca',
-            borderRadius: 6,
-            padding: '0.75rem 1rem',
-            marginBottom: 16,
-          }}
-        >
-          <p style={{ color: '#b91c1c', fontSize: 14 }}>{error}</p>
-        </div>
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error}
+        </p>
       )}
 
       {/* Search form — GET to same route */}
-      <Form method="get" style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
-        <input
-          type="text"
-          name="search"
-          placeholder="Search by name, email, or phone…"
-          defaultValue={''}
-          style={{
-            flex: 1,
-            border: '1px solid #d1d5db',
-            borderRadius: 6,
-            padding: '0.5rem 0.75rem',
-            fontSize: 14,
-            color: '#111827',
-          }}
-        />
-        <button
-          type="submit"
-          style={{
-            background: '#2563eb',
-            color: '#fff',
-            border: 'none',
-            borderRadius: 6,
-            padding: '0.5rem 1rem',
-            fontSize: 14,
-            fontWeight: 500,
-            cursor: 'pointer',
-          }}
-        >
+      <Form method="get" className="flex gap-2">
+        <div className="flex-1">
+          <Input
+            type="text"
+            name="search"
+            placeholder="Search by name, email, or phone…"
+            defaultValue={''}
+            startIcon={<Icons.Search className="size-4" />}
+          />
+        </div>
+        <Button type="submit" variant="secondary">
           Search
-        </button>
+        </Button>
       </Form>
 
       {/* Search results */}
-      {searchResults.length > 0 && (
-        <div
-          style={{
-            border: '1px solid #e5e7eb',
-            borderRadius: 8,
-            overflow: 'hidden',
-          }}
-        >
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: '#f9fafb' }}>
-                {['Name', 'Email', 'Phone', 'Orders', ''].map((col) => (
-                  <th
-                    key={col}
-                    style={{
-                      padding: '0.5rem 0.75rem',
-                      textAlign: 'left',
-                      fontSize: 11,
-                      fontWeight: 600,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.05em',
-                      color: '#6b7280',
-                      borderBottom: '1px solid #e5e7eb',
-                    }}
-                  >
-                    {col}
-                  </th>
+      {searchResults.length > 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Phone</TableHead>
+                  <TableHead>Orders</TableHead>
+                  <TableHead />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {searchResults.map((c) => (
+                  <TableRow key={c.id}>
+                    <TableCell className="font-medium">{customerDisplayName(c)}</TableCell>
+                    <TableCell className="text-neutral-600">{c.email ?? '—'}</TableCell>
+                    <TableCell className="text-neutral-600">{c.phone ?? '—'}</TableCell>
+                    <TableCell className="tabular text-neutral-600">{c.totalOrders ?? 0}</TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        to={`/customers/${baseId}/merge?targetId=${c.id}`}
+                        className={buttonVariants({ variant: 'secondary', size: 'sm' })}
+                      >
+                        Select
+                      </Link>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tr>
-            </thead>
-            <tbody>
-              {searchResults.map((c) => (
-                <tr
-                  key={c.id}
-                  style={{ borderBottom: '1px solid #f3f4f6' }}
-                >
-                  <td style={{ padding: '0.625rem 0.75rem', color: '#111827', fontWeight: 500 }}>
-                    {customerDisplayName(c)}
-                  </td>
-                  <td style={{ padding: '0.625rem 0.75rem', color: '#6b7280' }}>
-                    {c.email ?? '—'}
-                  </td>
-                  <td style={{ padding: '0.625rem 0.75rem', color: '#6b7280' }}>
-                    {c.phone ?? '—'}
-                  </td>
-                  <td style={{ padding: '0.625rem 0.75rem', color: '#6b7280' }}>
-                    {c.totalOrders ?? 0}
-                  </td>
-                  <td style={{ padding: '0.625rem 0.75rem', textAlign: 'right' }}>
-                    <Link
-                      to={`/customers/${baseId}/merge?targetId=${c.id}`}
-                      style={{
-                        background: '#f3f4f6',
-                        color: '#374151',
-                        border: '1px solid #d1d5db',
-                        borderRadius: 4,
-                        padding: '0.25rem 0.625rem',
-                        fontSize: 12,
-                        fontWeight: 500,
-                        textDecoration: 'none',
-                      }}
-                    >
-                      Select
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {/* No results message */}
-      {searchResults.length === 0 && (
-        <p style={{ fontSize: 13, color: '#9ca3af', textAlign: 'center', paddingTop: 8 }}>
-          {/* Only show message after a search has been attempted — check for search param in URL */}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      ) : (
+        <p className="pt-2 text-center text-sm text-neutral-400">
           Search for a customer above to find a profile to merge.
         </p>
       )}

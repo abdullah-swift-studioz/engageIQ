@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react'
 import { NavLink } from '@remix-run/react'
 import type { KpiStatus } from '@engageiq/shared'
+import { PageHeader, StatCard, Icons } from '~/components/ui'
 
 // Shared UI primitives + formatters for the analytics dashboard pages (roadmap Phase 4).
 
@@ -20,16 +22,11 @@ export function formatNumber(value: number | null | undefined): string {
   return value.toLocaleString('en-PK')
 }
 
-const STATUS_RING: Record<KpiStatus, string> = {
-  green: 'border-l-green-500',
-  amber: 'border-l-amber-500',
-  red: 'border-l-red-500',
-}
-
-const STATUS_TEXT: Record<KpiStatus, string> = {
-  green: 'text-green-600',
-  amber: 'text-amber-600',
-  red: 'text-red-600',
+// State is shown with an icon + weight, never a hue (design system §1).
+const STATUS_ICON: Record<KpiStatus, ReactNode> = {
+  green: <Icons.CheckCircle />,
+  amber: <Icons.AlertTriangle />,
+  red: <Icons.AlertCircle />,
 }
 
 export function KpiCard(props: {
@@ -38,28 +35,19 @@ export function KpiCard(props: {
   sub?: string
   status?: KpiStatus
   delta?: { value: string; positive: boolean } | null
+  /** Optional trailing visual (e.g. a <Sparkline/>). */
+  chart?: ReactNode
 }) {
-  const status = props.status
+  const { status, delta } = props
   return (
-    <div
-      className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm ${
-        status ? `border-l-4 ${STATUS_RING[status]}` : ''
-      }`}
-    >
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{props.label}</p>
-      <p className="mt-1 text-2xl font-semibold text-gray-900">{props.value}</p>
-      <div className="mt-1 flex items-center gap-2">
-        {props.sub && <span className="text-xs text-gray-500">{props.sub}</span>}
-        {props.delta && (
-          <span className={`text-xs font-medium ${props.delta.positive ? 'text-green-600' : 'text-red-600'}`}>
-            {props.delta.positive ? '▲' : '▼'} {props.delta.value}
-          </span>
-        )}
-        {status && !props.delta && (
-          <span className={`text-xs font-medium ${STATUS_TEXT[status]}`}>●</span>
-        )}
-      </div>
-    </div>
+    <StatCard
+      label={props.label}
+      value={props.value}
+      sub={props.sub}
+      icon={status ? STATUS_ICON[status] : undefined}
+      delta={delta ? { value: delta.value, direction: delta.positive ? 'up' : 'down' } : undefined}
+      chart={props.chart}
+    />
   )
 }
 
@@ -75,17 +63,17 @@ const TABS: Array<{ to: string; label: string }> = [
 
 export function AnalyticsNav() {
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
+    <nav className="flex flex-wrap gap-1 border-b border-neutral-200">
       {TABS.map((t) => (
         <NavLink
           key={t.to}
           to={t.to}
           end={t.to === '/analytics'}
           className={({ isActive }) =>
-            `border-b-2 px-3 py-2 text-sm font-medium ${
+            `-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
               isActive
-                ? 'border-brand-600 text-brand-600'
-                : 'border-transparent text-gray-500 hover:text-gray-800'
+                ? 'border-neutral-950 text-neutral-950'
+                : 'border-transparent text-neutral-500 hover:text-neutral-900'
             }`
           }
         >
@@ -96,13 +84,10 @@ export function AnalyticsNav() {
   )
 }
 
-export function AnalyticsPage(props: { title: string; subtitle?: string; children: React.ReactNode }) {
+export function AnalyticsPage(props: { title: string; subtitle?: string; children: ReactNode }) {
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <div className="mb-4">
-        <h1 className="text-2xl font-semibold text-gray-900">{props.title}</h1>
-        {props.subtitle && <p className="mt-1 text-sm text-gray-500">{props.subtitle}</p>}
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader eyebrow="Analytics" title={props.title} description={props.subtitle} />
       <AnalyticsNav />
       {props.children}
     </div>
@@ -112,8 +97,9 @@ export function AnalyticsPage(props: { title: string; subtitle?: string; childre
 export function ErrorBanner({ error }: { error: string | null }) {
   if (!error) return null
   return (
-    <div className="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3">
-      <p className="text-sm font-medium text-red-700">{error}</p>
+    <div className="flex items-start gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-3">
+      <Icons.AlertCircle className="mt-0.5 size-4 shrink-0 text-neutral-700" />
+      <p className="text-sm font-medium text-neutral-900">{error}</p>
     </div>
   )
 }

@@ -1,6 +1,23 @@
 import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
+import {
+  PageHeader,
+  buttonVariants,
+  Card,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Campaigns — EngageIQ' }]
 
@@ -23,13 +40,14 @@ interface LoaderData {
   error: string | null
 }
 
-const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
-  DRAFT: { bg: '#f3f4f6', fg: '#374151' },
-  SCHEDULED: { bg: '#fef3c7', fg: '#92400e' },
-  SENDING: { bg: '#dbeafe', fg: '#1d4ed8' },
-  SENT: { bg: '#dcfce7', fg: '#166534' },
-  PAUSED: { bg: '#fee2e2', fg: '#991b1b' },
-  CANCELLED: { bg: '#e5e7eb', fg: '#6b7280' },
+// Monochrome badge variants — state via emphasis (solid = active/sent), never hue.
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  DRAFT: 'subtle',
+  SCHEDULED: 'outline',
+  SENDING: 'solid',
+  SENT: 'solid',
+  PAUSED: 'outline',
+  CANCELLED: 'subtle',
 }
 
 export async function loader({ request }: LoaderFunctionArgs) {
@@ -52,80 +70,98 @@ export async function loader({ request }: LoaderFunctionArgs) {
   }
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const c = STATUS_COLORS[status] ?? { bg: '#f3f4f6', fg: '#374151' }
-  return (
-    <span
-      style={{
-        background: c.bg,
-        color: c.fg,
-        padding: '2px 8px',
-        borderRadius: '9999px',
-        fontSize: '0.75rem',
-      }}
-    >
-      {status}
-    </span>
-  )
-}
-
 export default function CampaignsPage() {
   const { campaigns, total, error } = useLoaderData<LoaderData>()
+  const scheduled = campaigns.filter((c) => c.status === 'SCHEDULED').length
+  const sent = campaigns.filter((c) => c.status === 'SENT').length
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h1>Campaigns ({total})</h1>
-        <Link
-          to="/campaigns/new"
-          style={{ background: '#2563eb', color: '#fff', padding: '0.5rem 1rem', borderRadius: '4px', textDecoration: 'none' }}
-        >
-          + New Campaign
-        </Link>
+    <div className="flex flex-col gap-6 p-6">
+      <PageHeader
+        eyebrow="Engage"
+        title="Campaigns"
+        description="One-time blasts to a segment across WhatsApp, SMS, email, and push."
+        actions={
+          <Link to="/campaigns/new" className={buttonVariants({ variant: 'primary' })}>
+            <Icons.Plus className="size-4" />
+            New campaign
+          </Link>
+        }
+      />
+
+      {error && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error}
+        </p>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard label="Total campaigns" value={total} />
+        <StatCard label="Scheduled" value={scheduled} />
+        <StatCard label="Sent" value={sent} />
       </div>
 
-      {error && <div style={{ color: 'red', marginBottom: '1rem' }}>Error: {error}</div>}
-
-      {campaigns.length === 0 && !error && (
-        <p style={{ color: '#666' }}>No campaigns yet. Create a one-time blast to a segment.</p>
-      )}
-
-      {campaigns.length > 0 && (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ borderBottom: '2px solid #e5e7eb', textAlign: 'left' }}>
-              <th style={{ padding: '0.75rem 1rem' }}>Name</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Channel</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Status</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Recipients</th>
-              <th style={{ padding: '0.75rem 1rem' }}>Send / Sent</th>
-            </tr>
-          </thead>
-          <tbody>
-            {campaigns.map((c) => (
-              <tr key={c.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <Link to={`/campaigns/${c.id}`} style={{ color: '#2563eb' }}>
-                    {c.name}
-                  </Link>
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>{c.channel}</td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <StatusBadge status={c.status} />
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>{c.recipientCount.toLocaleString()}</td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  {c.sentAt
-                    ? `Sent ${new Date(c.sentAt).toLocaleString()}`
-                    : c.sendAt
-                      ? `Scheduled ${new Date(c.sendAt).toLocaleString()}`
-                      : '—'}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <Card>
+        <CardContent className="pt-6">
+          {campaigns.length === 0 && !error ? (
+            <EmptyState
+              icon={<Icons.Megaphone className="size-6" />}
+              title="No campaigns yet"
+              description="Create a one-time blast to a segment."
+              action={
+                <Link to="/campaigns/new" className={buttonVariants({ variant: 'primary' })}>
+                  New campaign
+                </Link>
+              }
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Channel</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Recipients</TableHead>
+                  <TableHead>Send / Sent</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaigns.length === 0 ? (
+                  <TableEmpty colSpan={5}>No campaigns.</TableEmpty>
+                ) : (
+                  campaigns.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell>
+                        <Link
+                          to={`/campaigns/${c.id}`}
+                          className="font-medium underline-offset-2 hover:underline"
+                        >
+                          {c.name}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-neutral-600">{c.channel}</TableCell>
+                      <TableCell>
+                        <Badge variant={STATUS_VARIANT[c.status] ?? 'subtle'} dot>
+                          {c.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="tabular">{c.recipientCount.toLocaleString()}</TableCell>
+                      <TableCell className="text-neutral-600">
+                        {c.sentAt
+                          ? `Sent ${new Date(c.sentAt).toLocaleString()}`
+                          : c.sendAt
+                            ? `Scheduled ${new Date(c.sendAt).toLocaleString()}`
+                            : '—'}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
