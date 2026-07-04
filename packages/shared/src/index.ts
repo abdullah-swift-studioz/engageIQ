@@ -64,3 +64,20 @@ export type { WebPushSubscription, PushNotification } from './types.js'
 // lane:courier START
 export type { CourierSweepJob, CourierJob } from './types.js'
 // lane:courier END
+
+// lane:onsite START
+export { ONSITE_IMPRESSION_EVENT, ONSITE_CONVERSION_EVENT } from './types.js'
+export type {
+  OnSiteElementTypeName,
+  OnSiteElementStatusName,
+  OnSiteTriggerType,
+  OnSiteFrequency,
+  OnSitePosition,
+  OnSiteDisplayRules,
+  OnSiteElementConfig,
+  OnSiteVariant,
+  OnSiteDeliveryRequest,
+  OnSiteDeliveryElement,
+  OnSiteDeliveryResponse,
+} from './types.js'
+// lane:onsite END
