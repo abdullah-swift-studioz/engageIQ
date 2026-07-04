@@ -102,15 +102,12 @@ await app.register(recommendationsRoutes, { prefix: '/api/v1/recommendations' })
 // lane:campaigns START
 await app.register(campaignsRoutes, { prefix: '/api/v1/campaigns' })
 // lane:campaigns END
-<<<<<<< HEAD
 // lane:copywriter START
 await app.register(aiRoutes, { prefix: '/api/v1/ai' })
 // lane:copywriter END
-=======
 // lane:push START
 await app.register(pushRoutes, { prefix: '/api/v1/push' })
 // lane:push END
->>>>>>> lane/push
 
 app.get('/health', () => ({
   status: 'ok',

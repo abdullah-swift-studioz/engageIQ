@@ -58,7 +58,6 @@ export type {
   SubjectPredictRequestDto, SubjectFactorImpact, SubjectPredictFactor, SubjectPredictResultDto,
 } from './types.js'
 // lane:copywriter END
-=======
 // lane:push START
 export type { WebPushSubscription, PushNotification } from './types.js'
 // lane:push END
