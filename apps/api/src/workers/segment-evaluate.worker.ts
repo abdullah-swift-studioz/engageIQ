@@ -6,6 +6,10 @@ import type { SegmentEvaluateJobPayload } from '@engageiq/shared'
 import type { SegmentGroup } from '@engageiq/shared'
 import { validateConditionTree } from '../lib/segments/condition-validator.js'
 import { compileToPrismaWhere } from '../services/segment-evaluator.js'
+// lane:public-api START
+import { emitOutboundEvent } from '../services/webhooks-outbound/emit.js'
+import { OUTBOUND_EVENTS } from '../services/webhooks-outbound/events.js'
+// lane:public-api END
 
 export function createSegmentEvaluateWorker() {
   const worker = new Worker<SegmentEvaluateJobPayload>(
@@ -49,6 +53,15 @@ export function createSegmentEvaluateWorker() {
           data: toAdd.map((customerId) => ({ segmentId, customerId })),
           skipDuplicates: true,
         })
+        // lane:public-api START — outbound webhook: segment.entered (per new member)
+        for (const customerId of toAdd) {
+          void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.SEGMENT_ENTERED, {
+            segmentId,
+            segmentName: segment.name,
+            customerId,
+          })
+        }
+        // lane:public-api END
       }
 
       // Exited members: active but no longer matching
@@ -63,6 +76,15 @@ export function createSegmentEvaluateWorker() {
             }),
           ),
         )
+        // lane:public-api START — outbound webhook: segment.exited (per exited member)
+        for (const m of toRemove) {
+          void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.SEGMENT_EXITED, {
+            segmentId,
+            segmentName: segment.name,
+            customerId: m.customerId,
+          })
+        }
+        // lane:public-api END
       }
 
       // Update segment stats

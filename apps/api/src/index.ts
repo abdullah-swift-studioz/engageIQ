@@ -39,6 +39,10 @@ import pushRoutes from './routes/push/index.js'
 // lane:courier START
 import couriersRoutes from './routes/couriers/index.js'
 // lane:courier END
+// lane:public-api START
+import settingsRoutes from './routes/settings/index.js'
+import publicApiRoutes from './routes/public/index.js'
+// lane:public-api END
 
 const app = Fastify({
   logger: {
@@ -114,6 +118,10 @@ await app.register(pushRoutes, { prefix: '/api/v1/push' })
 // lane:courier START
 await app.register(couriersRoutes, { prefix: '/api/v1/couriers' })
 // lane:courier END
+// lane:public-api START
+await app.register(settingsRoutes, { prefix: '/api/v1/settings' })
+await app.register(publicApiRoutes, { prefix: '/api/v1/public' })
+// lane:public-api END
 
 app.get('/health', () => ({
   status: 'ok',

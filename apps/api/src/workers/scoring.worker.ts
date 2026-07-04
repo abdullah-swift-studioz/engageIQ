@@ -24,6 +24,12 @@ import { redisConnection, scoringQueue } from '@engageiq/queue'
 import { prisma } from '@engageiq/db'
 import { env } from '@engageiq/shared'
 import type { ScoringJob, ScoringTask } from '@engageiq/shared'
+// lane:public-api START
+import { emitOutboundEvent } from '../services/webhooks-outbound/emit.js'
+import { OUTBOUND_EVENTS } from '../services/webhooks-outbound/events.js'
+// Churn score (0–1) at/above which an upward crossing fires the customer.churn_threshold webhook.
+const CHURN_WEBHOOK_THRESHOLD = 0.7
+// lane:public-api END
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -317,6 +323,8 @@ export async function runChurn(merchantId: string, deps: ScoringDeps): Promise<n
   if (inputs.length === 0) return 0
   const scores = await deps.ml.churn(inputs)
   const scoredAt = new Date()
+  // lane:public-api — capture prior churn scores to detect threshold crossings for webhooks.
+  const priorChurn = new Map(customers.map((c) => [c.id, c.churnScore]))
   await chunked(scores, 50, async (chunk) => {
     await prisma.$transaction(
       chunk.map((s) =>
@@ -331,6 +339,20 @@ export async function runChurn(merchantId: string, deps: ScoringDeps): Promise<n
       ),
     )
   })
+  // lane:public-api START — outbound webhook: customer.churn_threshold (upward crossings only)
+  for (const s of scores) {
+    const prev = priorChurn.get(s.id) ?? null
+    if ((prev === null || prev < CHURN_WEBHOOK_THRESHOLD) && s.churnScore >= CHURN_WEBHOOK_THRESHOLD) {
+      void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.CHURN_THRESHOLD_CROSSED, {
+        customerId: s.id,
+        churnScore: s.churnScore,
+        churnRiskLabel: s.churnRiskLabel,
+        threshold: CHURN_WEBHOOK_THRESHOLD,
+        previousScore: prev,
+      })
+    }
+  }
+  // lane:public-api END
   await recordRun(merchantId, 'churn', scores.length, startedAt)
   return scores.length
 }

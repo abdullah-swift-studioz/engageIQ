@@ -102,6 +102,16 @@ const schema = z.object({
     .default('false')
     .transform((v) => v === 'true'),
   // lane:courier END
+  // lane:public-api START
+  // Master key used to encrypt merchant-owned outbound-webhook signing secrets at rest
+  // (AES-256-GCM). Provide a 32-byte key as base64 (44 chars) or hex (64 chars).
+  // Generate: `openssl rand -base64 32`. Optional so the app boots credential-free in dev;
+  // when unset, the crypto layer derives a NON-PRODUCTION key from JWT_SECRET and logs a
+  // warning. MUST be set in production or webhook secrets are not portable across restarts.
+  WEBHOOK_ENCRYPTION_KEY: z.string().optional(),
+  // Per-request timeout (ms) for delivering an outbound webhook POST before it counts as failed.
+  WEBHOOK_DELIVERY_TIMEOUT_MS: z.coerce.number().int().positive().default(10000),
+  // lane:public-api END
 })
 
 const result = schema.safeParse(process.env)

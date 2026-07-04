@@ -2,6 +2,10 @@ import { prisma } from '@engageiq/db'
 import type { SegmentGroup, SegmentCondition, ConditionOperator, EnrichedCustomerProfile } from '@engageiq/shared'
 import { FIELD_REGISTRY } from '../lib/segments/field-registry.js'
 import { checkJourneyEntry } from './journey-entry.service.js'
+// lane:public-api START
+import { emitOutboundEvent } from './webhooks-outbound/emit.js'
+import { OUTBOUND_EVENTS } from './webhooks-outbound/events.js'
+// lane:public-api END
 
 // ─── Type guards ──────────────────────────────────────────────────────────────
 
@@ -268,7 +272,7 @@ export async function evaluateProfileMemberships(
 ): Promise<void> {
   const segments = await prisma.segment.findMany({
     where: { merchantId, isDynamic: true },
-    select: { id: true, conditions: true },
+    select: { id: true, conditions: true, name: true }, // name: lane:public-api (webhook payload)
   })
   if (segments.length === 0) return
 
@@ -294,11 +298,25 @@ export async function evaluateProfileMemberships(
       checkJourneyEntry(customerId, merchantId, 'segment_entered', { segmentId: segment.id }).catch(
         (err: unknown) => console.error('[journey-entry] segment_entered hook failed', err),
       )
+      // lane:public-api START — outbound webhook: segment.entered
+      void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.SEGMENT_ENTERED, {
+        segmentId: segment.id,
+        segmentName: segment.name,
+        customerId,
+      })
+      // lane:public-api END
     } else if (!isMember && existing) {
       await prisma.segmentMembership.update({
         where: { id: existing.id },
         data: { exitedAt: new Date() },
       })
+      // lane:public-api START — outbound webhook: segment.exited
+      void emitOutboundEvent(merchantId, OUTBOUND_EVENTS.SEGMENT_EXITED, {
+        segmentId: segment.id,
+        segmentName: segment.name,
+        customerId,
+      })
+      // lane:public-api END
     }
   }
 }

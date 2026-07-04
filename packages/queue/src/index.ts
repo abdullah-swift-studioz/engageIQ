@@ -18,5 +18,8 @@ export {
   // lane:courier START
   courierPollQueue,
   // lane:courier END
+  // lane:public-api START
+  webhookDeliveryQueue,
+  // lane:public-api END
 } from './queues.js'
 export type { QueueName } from './queues.js'
