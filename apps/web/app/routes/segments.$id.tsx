@@ -3,6 +3,17 @@ import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import type { SegmentGroup } from '@engageiq/shared'
 import { SegmentBuilder } from '../components/SegmentBuilder.js'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Button,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => [
   { title: `${data?.segment?.name ?? 'Segment'} — EngageIQ` },
@@ -49,7 +60,16 @@ export default function SegmentDetailPage() {
   const token = typeof window !== 'undefined' ? '' : (process.env['DEV_TOKEN'] ?? '')
 
   if (error || !segment) {
-    return <div style={{ padding: '2rem', color: 'red' }}>{error ?? 'Segment not found'}</div>
+    return (
+      <div className="flex flex-col gap-6 p-6">
+        <Breadcrumb items={[{ label: 'Segments', href: '/segments' }, { label: 'Not found' }]} />
+        <EmptyState
+          icon={<Icons.AlertCircle className="size-6" />}
+          title="Segment not found"
+          description={error ?? 'This segment could not be loaded.'}
+        />
+      </div>
+    )
   }
 
   async function handleSave(name: string, description: string, conditions: SegmentGroup) {
@@ -81,42 +101,38 @@ export default function SegmentDetailPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
-        <div>
-          <h1>{segment.name}</h1>
-          <p style={{ color: '#6b7280', margin: 0 }}>
-            {segment.memberCount.toLocaleString()} members
-            {segment.lastEvaluatedAt
-              ? ` · Last evaluated: ${new Date(segment.lastEvaluatedAt).toLocaleString()}`
-              : ' · Never evaluated'}
-          </p>
-        </div>
-        <button
-          onClick={() => { void handleReEvaluate() }}
-          style={{
-            padding: '0.5rem 1rem',
-            background: '#f3f4f6',
-            border: '1px solid #d1d5db',
-            borderRadius: '4px',
-            cursor: 'pointer',
-          }}
-        >
-          Re-evaluate
-        </button>
-      </div>
+    <div className="mx-auto flex max-w-[820px] flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'Segments', href: '/segments' }, { label: segment.name }]} />
+      <PageHeader
+        eyebrow="Audience"
+        title={segment.name}
+        description={`${segment.memberCount.toLocaleString()} members${
+          segment.lastEvaluatedAt
+            ? ` · Last evaluated ${new Date(segment.lastEvaluatedAt).toLocaleString()}`
+            : ' · Never evaluated'
+        }`}
+        actions={
+          <Button variant="secondary" onClick={() => { void handleReEvaluate() }}>
+            Re-evaluate
+          </Button>
+        }
+      />
 
       {segment.preview.length > 0 && (
-        <div style={{ marginBottom: '2rem', padding: '1rem', background: '#f9fafb', borderRadius: '4px' }}>
-          <strong>Preview (first {segment.preview.length} matches):</strong>
-          <ul style={{ margin: '0.5rem 0 0 1rem', padding: 0 }}>
-            {segment.preview.map((c) => (
-              <li key={c.id} style={{ marginBottom: '0.25rem' }}>
-                {[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.id}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview (first {segment.preview.length} matches)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-1 text-sm text-neutral-700">
+              {segment.preview.map((c) => (
+                <li key={c.id}>
+                  {[c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || c.id}
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       )}
 
       <SegmentBuilder

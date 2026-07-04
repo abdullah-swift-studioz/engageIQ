@@ -1,6 +1,20 @@
 import { Form, Link, useActionData, useLoaderData } from '@remix-run/react'
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  StatCard,
+  Button,
+  Input,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'Campaign — EngageIQ' }]
 
@@ -33,6 +47,16 @@ interface LoaderData {
 
 interface ActionData {
   error: string | null
+}
+
+// Monochrome badge variants — state via emphasis (solid = active/sent), never hue.
+const STATUS_VARIANT: Record<string, 'solid' | 'outline' | 'subtle'> = {
+  DRAFT: 'subtle',
+  SCHEDULED: 'outline',
+  SENDING: 'solid',
+  SENT: 'solid',
+  PAUSED: 'outline',
+  CANCELLED: 'subtle',
 }
 
 function apiBase() {
@@ -103,22 +127,24 @@ export async function action({ request, params }: ActionFunctionArgs) {
   return json<ActionData>({ error: 'Unknown action' })
 }
 
-const card: React.CSSProperties = {
-  border: '1px solid #e5e7eb',
-  borderRadius: '6px',
-  padding: '1rem',
-  marginBottom: '1rem',
-}
-
 export default function CampaignDetailPage() {
   const { campaign, error } = useLoaderData<LoaderData>()
   const actionData = useActionData<ActionData>()
 
   if (!campaign) {
     return (
-      <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-        <p style={{ color: 'red' }}>{error ?? 'Campaign not found'}</p>
-        <Link to="/campaigns">← Back to campaigns</Link>
+      <div className="flex flex-col gap-6 p-6">
+        <Breadcrumb items={[{ label: 'Campaigns', href: '/campaigns' }, { label: 'Not found' }]} />
+        <EmptyState
+          icon={<Icons.AlertCircle className="size-6" />}
+          title="Campaign not found"
+          description={error ?? 'This campaign could not be loaded.'}
+          action={
+            <Link to="/campaigns">
+              <Button variant="secondary">Back to campaigns</Button>
+            </Link>
+          }
+        />
       </div>
     )
   }
@@ -128,93 +154,151 @@ export default function CampaignDetailPage() {
   const canDelete = campaign.status !== 'SENDING'
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: '720px' }}>
-      <Link to="/campaigns" style={{ color: '#6b7280' }}>← Back to campaigns</Link>
-      <h1 style={{ marginTop: '0.5rem' }}>{campaign.name}</h1>
-      <p style={{ color: '#6b7280' }}>
-        {campaign.channel} · {campaign.status}
-      </p>
+    <div className="mx-auto flex max-w-[820px] flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'Campaigns', href: '/campaigns' }, { label: campaign.name }]} />
+      <PageHeader
+        eyebrow="Engage"
+        title={campaign.name}
+        description={campaign.channel}
+        actions={
+          <Badge variant={STATUS_VARIANT[campaign.status] ?? 'subtle'} dot>
+            {campaign.status}
+          </Badge>
+        }
+      />
 
-      {actionData?.error && <p style={{ color: 'red' }}>{actionData.error}</p>}
-
-      <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Content</h3>
-        {campaign.subject && <p><strong>Subject:</strong> {campaign.subject}</p>}
-        <pre style={{ whiteSpace: 'pre-wrap', background: '#f9fafb', padding: '0.75rem', borderRadius: '4px' }}>
-          {campaign.content?.body ?? '(no body)'}
-        </pre>
-      </div>
-
-      <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Target</h3>
-        <p>
-          Segment:{' '}
-          {campaign.segment ? (
-            <Link to={`/segments/${campaign.segment.id}`} style={{ color: '#2563eb' }}>
-              {campaign.segment.name}
-            </Link>
-          ) : (
-            <span style={{ color: '#b91c1c' }}>none (cannot send)</span>
-          )}
-          {campaign.segment && ` (${campaign.segment.memberCount.toLocaleString()} members)`}
+      {actionData?.error && (
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {actionData.error}
         </p>
-      </div>
+      )}
 
-      <div style={card}>
-        <h3 style={{ marginTop: 0 }}>Delivery</h3>
-        <p>Recipients: {campaign.recipientCount.toLocaleString()}</p>
-        <p>Delivered: {campaign.deliveredCount.toLocaleString()} · Opened: {campaign.openedCount.toLocaleString()} · Clicked: {campaign.clickedCount.toLocaleString()}</p>
-        {Object.keys(campaign.recipientBreakdown).length > 0 && (
-          <p style={{ color: '#6b7280' }}>
-            {Object.entries(campaign.recipientBreakdown)
-              .map(([s, n]) => `${s}: ${n}`)
-              .join(' · ')}
+      <Card>
+        <CardHeader>
+          <CardTitle>Content</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {campaign.subject && (
+            <p className="text-sm">
+              <span className="font-medium text-neutral-950">Subject:</span>{' '}
+              <span className="text-neutral-600">{campaign.subject}</span>
+            </p>
+          )}
+          <pre className="whitespace-pre-wrap rounded-lg bg-neutral-50 p-3 text-sm text-neutral-700">
+            {campaign.content?.body ?? '(no body)'}
+          </pre>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Target</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm">
+            <span className="font-medium text-neutral-950">Segment:</span>{' '}
+            {campaign.segment ? (
+              <>
+                <Link
+                  to={`/segments/${campaign.segment.id}`}
+                  className="underline-offset-2 hover:underline"
+                >
+                  {campaign.segment.name}
+                </Link>
+                <span className="text-neutral-600">
+                  {' '}({campaign.segment.memberCount.toLocaleString()} members)
+                </span>
+              </>
+            ) : (
+              <span className="inline-flex items-center gap-1 font-medium text-neutral-950">
+                <Icons.AlertTriangle className="size-4" />
+                none (cannot send)
+              </span>
+            )}
           </p>
-        )}
-        {campaign.sentAt && <p>Sent at: {new Date(campaign.sentAt).toLocaleString()}</p>}
-        {!campaign.sentAt && campaign.sendAt && <p>Scheduled for: {new Date(campaign.sendAt).toLocaleString()}</p>}
-      </div>
+        </CardContent>
+      </Card>
 
-      <div style={{ ...card, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        <h3 style={{ marginTop: 0 }}>Actions</h3>
+      <Card>
+        <CardHeader>
+          <CardTitle>Delivery</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid gap-4 sm:grid-cols-4">
+            <StatCard label="Recipients" value={campaign.recipientCount.toLocaleString()} />
+            <StatCard label="Delivered" value={campaign.deliveredCount.toLocaleString()} />
+            <StatCard label="Opened" value={campaign.openedCount.toLocaleString()} />
+            <StatCard label="Clicked" value={campaign.clickedCount.toLocaleString()} />
+          </div>
+          {Object.keys(campaign.recipientBreakdown).length > 0 && (
+            <p className="text-xs text-neutral-500">
+              {Object.entries(campaign.recipientBreakdown)
+                .map(([s, n]) => `${s}: ${n}`)
+                .join(' · ')}
+            </p>
+          )}
+          {campaign.sentAt && (
+            <p className="text-sm text-neutral-600">
+              Sent at: {new Date(campaign.sentAt).toLocaleString()}
+            </p>
+          )}
+          {!campaign.sentAt && campaign.sendAt && (
+            <p className="text-sm text-neutral-600">
+              Scheduled for: {new Date(campaign.sendAt).toLocaleString()}
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
-        {canSend && (
-          <Form method="post">
-            <input type="hidden" name="intent" value="send" />
-            <button type="submit" style={{ padding: '0.5rem 1.5rem', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Send Now
-            </button>
-          </Form>
-        )}
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          {canSend && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="send" />
+              <Button type="submit" leftIcon={<Icons.ArrowRight className="size-4" />}>
+                Send now
+              </Button>
+            </Form>
+          )}
 
-        {canSend && (
-          <Form method="post" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <input type="hidden" name="intent" value="schedule" />
-            <input type="datetime-local" name="sendAt" required style={{ padding: '0.4rem', border: '1px solid #d1d5db', borderRadius: '4px' }} />
-            <button type="submit" style={{ padding: '0.5rem 1rem', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Schedule
-            </button>
-          </Form>
-        )}
+          {canSend && (
+            <Form method="post" className="flex items-center gap-2">
+              <input type="hidden" name="intent" value="schedule" />
+              <Input type="datetime-local" name="sendAt" required className="w-auto" />
+              <Button type="submit" variant="secondary">
+                Schedule
+              </Button>
+            </Form>
+          )}
 
-        {canCancel && (
-          <Form method="post">
-            <input type="hidden" name="intent" value="cancel" />
-            <button type="submit" style={{ padding: '0.5rem 1rem', background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-              Cancel Schedule
-            </button>
-          </Form>
-        )}
+          {canCancel && (
+            <Form method="post">
+              <input type="hidden" name="intent" value="cancel" />
+              <Button type="submit" variant="secondary">
+                Cancel schedule
+              </Button>
+            </Form>
+          )}
 
-        {canDelete && (
-          <Form method="post" onSubmit={(e) => { if (!confirm('Delete this campaign?')) e.preventDefault() }}>
-            <input type="hidden" name="intent" value="delete" />
-            <button type="submit" style={{ padding: '0.5rem 1rem', background: '#fff', color: '#b91c1c', border: '1px solid #b91c1c', borderRadius: '4px', cursor: 'pointer' }}>
-              Delete
-            </button>
-          </Form>
-        )}
-      </div>
+          {canDelete && (
+            <Form
+              method="post"
+              onSubmit={(e) => {
+                if (!confirm('Delete this campaign?')) e.preventDefault()
+              }}
+            >
+              <input type="hidden" name="intent" value="delete" />
+              <Button type="submit" variant="destructive" leftIcon={<Icons.X className="size-4" />}>
+                Delete
+              </Button>
+            </Form>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

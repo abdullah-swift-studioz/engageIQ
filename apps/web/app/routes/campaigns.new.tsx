@@ -1,6 +1,18 @@
-import { Form, useActionData, useLoaderData } from '@remix-run/react'
+import { Form, Link, useActionData, useLoaderData, useNavigation } from '@remix-run/react'
 import type { ActionFunctionArgs, LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json, redirect } from '@remix-run/node'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardContent,
+  Button,
+  Input,
+  Select,
+  Textarea,
+  FormField,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction = () => [{ title: 'New Campaign — EngageIQ' }]
 
@@ -16,15 +28,6 @@ interface LoaderData {
 
 interface ActionData {
   error: string | null
-}
-
-const inputStyle: React.CSSProperties = {
-  display: 'block',
-  width: '100%',
-  padding: '0.5rem',
-  marginTop: '0.25rem',
-  border: '1px solid #d1d5db',
-  borderRadius: '4px',
 }
 
 export async function loader({}: LoaderFunctionArgs) {
@@ -77,60 +80,90 @@ export async function action({ request }: ActionFunctionArgs) {
 export default function NewCampaignPage() {
   const { segments } = useLoaderData<LoaderData>()
   const actionData = useActionData<ActionData>()
+  const nav = useNavigation()
+  const saving = nav.state === 'submitting'
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace', maxWidth: '640px' }}>
-      <h1>New Campaign</h1>
-      {actionData?.error && <p style={{ color: 'red' }}>{actionData.error}</p>}
-      <Form method="post" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-        <label>
-          Name *<input name="name" required style={inputStyle} />
-        </label>
-        <label>
-          Channel *
-          <select name="channel" required style={inputStyle} defaultValue="WHATSAPP">
-            <option value="WHATSAPP">WhatsApp</option>
-            <option value="SMS">SMS</option>
-            <option value="EMAIL">Email</option>
-            <option value="PUSH">Push</option>
-          </select>
-        </label>
-        <label>
-          Target Segment *
-          <select name="segmentId" required style={inputStyle}>
-            <option value="">— select a segment —</option>
-            {segments.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.memberCount.toLocaleString()} members)
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Subject (email only)
-          <input name="subject" style={inputStyle} />
-        </label>
-        <label>
-          Message Body *
-          <textarea name="body" required rows={5} style={{ ...inputStyle, fontFamily: 'monospace' }} />
-        </label>
-        <details>
-          <summary style={{ cursor: 'pointer', color: '#6b7280' }}>UTM tracking (optional)</summary>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-            <input name="utmCampaign" placeholder="utm_campaign" style={inputStyle} />
-            <input name="utmSource" placeholder="utm_source" style={inputStyle} />
-            <input name="utmMedium" placeholder="utm_medium" style={inputStyle} />
-          </div>
-        </details>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-          <button type="submit" style={{ padding: '0.5rem 1.5rem', background: '#111', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            Create Draft
-          </button>
-          <a href="/campaigns" style={{ padding: '0.5rem 1rem', color: '#6b7280', textDecoration: 'none' }}>
-            Cancel
-          </a>
-        </div>
-      </Form>
+    <div className="mx-auto max-w-[720px] px-6 py-6">
+      <Breadcrumb items={[{ label: 'Campaigns', href: '/campaigns' }, { label: 'New' }]} />
+      <PageHeader
+        eyebrow="Engage"
+        title="New campaign"
+        description="Compose a one-time blast and target it to a segment."
+      />
+
+      {actionData?.error && (
+        <p className="mb-4 flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {actionData.error}
+        </p>
+      )}
+
+      <Card>
+        <CardContent className="pt-6">
+          <Form method="post" className="space-y-4">
+            <FormField label="Name">
+              <Input name="name" required placeholder="Spring sale blast" autoFocus />
+            </FormField>
+
+            <FormField label="Channel">
+              <Select name="channel" required defaultValue="WHATSAPP">
+                <option value="WHATSAPP">WhatsApp</option>
+                <option value="SMS">SMS</option>
+                <option value="EMAIL">Email</option>
+                <option value="PUSH">Push</option>
+              </Select>
+            </FormField>
+
+            <FormField label="Target segment">
+              <Select name="segmentId" required defaultValue="">
+                <option value="">— select a segment —</option>
+                {segments.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.memberCount.toLocaleString()} members)
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+
+            <FormField label="Subject" hint="Email only.">
+              <Input name="subject" placeholder="Your spring picks are here" />
+            </FormField>
+
+            <FormField label="Message body">
+              <Textarea name="body" required rows={5} placeholder="Write your message…" />
+            </FormField>
+
+            <details className="rounded-lg border border-neutral-200 p-4">
+              <summary className="cursor-pointer text-sm font-medium text-neutral-600">
+                UTM tracking (optional)
+              </summary>
+              <div className="mt-3 space-y-3">
+                <FormField label="utm_campaign">
+                  <Input name="utmCampaign" placeholder="utm_campaign" />
+                </FormField>
+                <FormField label="utm_source">
+                  <Input name="utmSource" placeholder="utm_source" />
+                </FormField>
+                <FormField label="utm_medium">
+                  <Input name="utmMedium" placeholder="utm_medium" />
+                </FormField>
+              </div>
+            </details>
+
+            <div className="flex justify-end gap-2">
+              <Link to="/campaigns">
+                <Button type="button" variant="secondary">
+                  Cancel
+                </Button>
+              </Link>
+              <Button type="submit" isLoading={saving}>
+                Create draft
+              </Button>
+            </div>
+          </Form>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -11,6 +11,23 @@ import {
   formatPkr,
   formatNumber,
 } from '../components/analytics/ui'
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  EmptyState,
+  Icons,
+} from '~/components/ui'
+import { Sparkline } from '~/components/charts'
 
 export const meta: MetaFunction = () => [{ title: 'Real-Time Dashboard — EngageIQ' }]
 
@@ -55,23 +72,26 @@ export default function AnalyticsRealtime() {
 
       {kpis && (
         <>
-          {/* Alerts */}
+          {/* Alerts — state shown by icon + weight, never hue */}
           {kpis.alerts.length > 0 && (
-            <div className="mb-6 space-y-2">
-              {kpis.alerts.map((a, i) => (
-                <div
-                  key={i}
-                  className={`rounded-md border px-4 py-2 text-sm font-medium ${
-                    a.level === 'red'
-                      ? 'border-red-200 bg-red-50 text-red-700'
-                      : a.level === 'amber'
-                        ? 'border-amber-200 bg-amber-50 text-amber-700'
-                        : 'border-green-200 bg-green-50 text-green-700'
-                  }`}
-                >
-                  {a.message}
-                </div>
-              ))}
+            <div className="space-y-2">
+              {kpis.alerts.map((a, i) => {
+                const AlertIcon =
+                  a.level === 'red'
+                    ? Icons.AlertCircle
+                    : a.level === 'amber'
+                      ? Icons.AlertTriangle
+                      : Icons.CheckCircle
+                return (
+                  <div
+                    key={i}
+                    className="flex items-start gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 shadow-xs"
+                  >
+                    <AlertIcon className="mt-0.5 size-4 shrink-0 text-neutral-700" />
+                    <p className="text-sm font-medium text-neutral-900">{a.message}</p>
+                  </div>
+                )
+              })}
             </div>
           )}
 
@@ -84,6 +104,14 @@ export default function AnalyticsRealtime() {
               sub={`Yesterday ${formatPkr(kpis.revenue.yesterday)}`}
               status={revenueStatus(kpis.revenue.today, kpis.revenue.sameDayLastWeek)}
               delta={deltaPct(kpis.revenue.today, kpis.revenue.sameDayLastWeek)}
+              chart={
+                <Sparkline
+                  values={[kpis.revenue.sameDayLastWeek, kpis.revenue.yesterday, kpis.revenue.today]}
+                  area
+                  showLast
+                  ariaLabel="Revenue trend"
+                />
+              }
             />
             <KpiCard
               label="Orders Today"
@@ -98,56 +126,72 @@ export default function AnalyticsRealtime() {
           </div>
 
           {/* Revenue comparison */}
-          <div className="mt-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold text-gray-900">Revenue Comparison</h2>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              {[
-                ['Today', kpis.revenue.today],
-                ['Yesterday', kpis.revenue.yesterday],
-                ['Same day last week', kpis.revenue.sameDayLastWeek],
-              ].map(([label, val]) => (
-                <div key={label as string}>
-                  <p className="text-lg font-semibold text-gray-900">{formatPkr(val as number)}</p>
-                  <p className="text-xs text-gray-500">{label}</p>
-                </div>
-              ))}
-            </div>
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Revenue Comparison</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 text-center">
+                {[
+                  ['Today', kpis.revenue.today],
+                  ['Yesterday', kpis.revenue.yesterday],
+                  ['Same day last week', kpis.revenue.sameDayLastWeek],
+                ].map(([label, val]) => (
+                  <div key={label as string}>
+                    <p className="tabular text-lg font-semibold text-neutral-950">{formatPkr(val as number)}</p>
+                    <p className="mt-0.5 text-xs text-neutral-500">{label}</p>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Active campaigns */}
-          <div className="mt-6">
-            <h2 className="mb-3 text-sm font-semibold text-gray-900">Active Campaigns</h2>
-            {kpis.activeCampaigns.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-300 bg-white px-4 py-6 text-center text-sm text-gray-500">
-                No active campaigns right now.
-              </p>
-            ) : (
-              <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      {['Campaign', 'Status', 'Recipients', 'Delivered', 'Revenue'].map((c) => (
-                        <th key={c} className="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                          {c}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {kpis.activeCampaigns.map((c) => (
-                      <tr key={c.id}>
-                        <td className="px-4 py-2 text-sm font-medium text-gray-900">{c.name}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{c.status}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{formatNumber(c.recipientCount)}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{formatNumber(c.deliveredCount)}</td>
-                        <td className="px-4 py-2 text-sm text-gray-600">{formatPkr(c.revenueAttributed)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Campaigns</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {kpis.activeCampaigns.length === 0 ? (
+                <EmptyState
+                  icon={<Icons.Megaphone />}
+                  title="No active campaigns right now"
+                  description="Live campaigns will appear here with their delivery and revenue stats."
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Campaign</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Recipients</TableHead>
+                      <TableHead className="text-right">Delivered</TableHead>
+                      <TableHead className="text-right">Revenue</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kpis.activeCampaigns.length === 0 ? (
+                      <TableEmpty colSpan={5}>No active campaigns.</TableEmpty>
+                    ) : (
+                      kpis.activeCampaigns.map((c) => (
+                        <TableRow key={c.id}>
+                          <TableCell className="font-medium text-neutral-900">{c.name}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" dot>
+                              {c.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="tabular text-right">{formatNumber(c.recipientCount)}</TableCell>
+                          <TableCell className="tabular text-right">{formatNumber(c.deliveredCount)}</TableCell>
+                          <TableCell className="tabular text-right">{formatPkr(c.revenueAttributed)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </AnalyticsPage>

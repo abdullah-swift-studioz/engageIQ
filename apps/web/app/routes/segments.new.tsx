@@ -1,5 +1,6 @@
 import { useNavigate } from '@remix-run/react'
 import type { MetaFunction } from '@remix-run/node'
+import { PageHeader, Breadcrumb } from '~/components/ui'
 import { SegmentBuilder } from '../components/SegmentBuilder.js'
 import type { SegmentGroup } from '@engageiq/shared'
 
@@ -27,8 +28,13 @@ export default function NewSegmentPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', fontFamily: 'monospace' }}>
-      <h1>New Segment</h1>
+    <div className="mx-auto max-w-[820px] px-6 py-6">
+      <Breadcrumb items={[{ label: 'Segments', href: '/segments' }, { label: 'New' }]} />
+      <PageHeader
+        eyebrow="Audience"
+        title="New segment"
+        description="Define conditions to target the right customers."
+      />
       <SegmentBuilder onSave={handleSave} />
     </div>
   )

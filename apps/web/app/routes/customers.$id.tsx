@@ -2,6 +2,25 @@ import { Link, useLoaderData } from '@remix-run/react'
 import type { LoaderFunctionArgs, MetaFunction } from '@remix-run/node'
 import { json } from '@remix-run/node'
 import type { EnrichedCustomerProfile } from '@engageiq/shared'
+import {
+  PageHeader,
+  Breadcrumb,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableEmpty,
+  Badge,
+  buttonVariants,
+  Icons,
+} from '~/components/ui'
 
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   if (!data?.customer) return [{ title: 'Customer Not Found — EngageIQ' }]
@@ -123,96 +142,76 @@ function fmtPct(value: number | null | undefined): string {
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="mb-4 text-base font-semibold text-gray-900 border-b border-gray-200 pb-2">
-      {children}
-    </h2>
-  )
-}
-
-function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-gray-500">{label}</p>
-      <p className="mt-1 text-xl font-semibold text-gray-900">{value}</p>
-    </div>
-  )
-}
-
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2 py-1.5">
-      <span className="w-44 shrink-0 text-sm text-gray-500">{label}</span>
-      <span className="text-sm font-medium text-gray-900">{value}</span>
+      <span className="w-44 shrink-0 text-sm text-neutral-500">{label}</span>
+      <span className="text-sm font-medium text-neutral-950">{value}</span>
     </div>
   )
 }
 
+// Opt-in shown with an icon + weight, never hue.
 function OptinIcon({ value }: { value: boolean }) {
   return value ? (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-green-600">
-      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M16.707 5.293a1 1 0 0 1 0 1.414l-8 8a1 1 0 0 1-1.414 0l-4-4a1 1 0 1 1 1.414-1.414L8 12.586l7.293-7.293a1 1 0 0 1 1.414 0Z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </span>
+    <Icons.CheckCircle className="size-5 text-neutral-950" aria-label="Subscribed" />
   ) : (
-    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-100 text-red-500">
-      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-        <path
-          fillRule="evenodd"
-          d="M4.293 4.293a1 1 0 0 1 1.414 0L10 8.586l4.293-4.293a1 1 0 1 1 1.414 1.414L11.414 10l4.293 4.293a1 1 0 0 1-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 0 1-1.414-1.414L8.586 10 4.293 5.707a1 1 0 0 1 0-1.414Z"
-          clipRule="evenodd"
-        />
-      </svg>
-    </span>
+    <Icons.XCircle className="size-5 text-neutral-400" aria-label="Not subscribed" />
   )
 }
 
+// Score rendered as a filled/empty dot meter — magnitude by shade, never hue.
 function ScoreDot({ score }: { score: number | null }) {
-  if (score === null) return <span className="text-gray-400">—</span>
+  if (score === null) return <span className="text-neutral-400">—</span>
   const filled = score
   return (
     <span className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((i) => (
         <span
           key={i}
-          className={`inline-block h-2.5 w-2.5 rounded-full ${i <= filled ? 'bg-brand-500' : 'bg-gray-200'}`}
+          className={`inline-block h-2.5 w-2.5 rounded-full ${i <= filled ? 'bg-neutral-900' : 'bg-neutral-200'}`}
         />
       ))}
-      <span className="ml-1.5 text-sm font-medium text-gray-700">{score}/5</span>
+      <span className="ml-1.5 text-sm font-medium text-neutral-700">{score}/5</span>
     </span>
   )
 }
 
+// Churn risk mapped to monochrome emphasis — HIGH/CRITICAL get solid fill + icon.
 function ChurnRiskBadge({ label }: { label: string | null }) {
-  if (!label) return <span className="text-gray-400">—</span>
-  const colours: Record<string, string> = {
-    LOW: 'bg-green-100 text-green-800',
-    MEDIUM: 'bg-yellow-100 text-yellow-800',
-    HIGH: 'bg-orange-100 text-orange-800',
-    CRITICAL: 'bg-red-100 text-red-800',
-  }
-  const cls = colours[label.toUpperCase()] ?? 'bg-gray-100 text-gray-700'
+  if (!label) return <span className="text-neutral-400">—</span>
+  const level = label.toUpperCase()
+  const variant: 'solid' | 'outline' | 'subtle' =
+    level === 'HIGH' || level === 'CRITICAL' ? 'solid' : level === 'MEDIUM' ? 'outline' : 'subtle'
+  const withIcon = level === 'HIGH' || level === 'CRITICAL'
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${cls}`}>
+    <Badge variant={variant}>
+      {withIcon && <Icons.AlertTriangle className="size-3" />}
       {label}
-    </span>
+    </Badge>
   )
 }
 
-function EmptyTableRow({ colSpan, message }: { colSpan: number; message: string }) {
+function JourneyStatusBadge({ status }: { status: string }) {
+  const variant: 'solid' | 'outline' | 'subtle' =
+    status === 'ACTIVE' ? 'solid' : status === 'COMPLETED' ? 'outline' : 'subtle'
   return (
-    <tr>
-      <td colSpan={colSpan} className="py-8 text-center text-sm text-gray-400">
-        {message}
-      </td>
-    </tr>
+    <Badge variant={variant} dot>
+      {status}
+    </Badge>
   )
+}
+
+function FinancialStatusBadge({ status }: { status: string }) {
+  const variant: 'solid' | 'outline' | 'subtle' =
+    status === 'paid' ? 'solid' : status === 'pending' ? 'outline' : 'subtle'
+  return <Badge variant={variant}>{status}</Badge>
+}
+
+function FulfillmentStatusBadge({ status }: { status: string }) {
+  const variant: 'solid' | 'outline' | 'subtle' =
+    status === 'fulfilled' ? 'solid' : status === 'partial' ? 'outline' : 'subtle'
+  return <Badge variant={variant}>{status}</Badge>
 }
 
 // ─── Main page component ─────────────────────────────────────────────────────
@@ -222,24 +221,21 @@ export default function CustomerDetail() {
 
   if (error && !customer) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        <div className="rounded-md border border-red-200 bg-red-50 px-4 py-4">
-          <p className="text-sm font-medium text-red-700">{error}</p>
-        </div>
-        <div className="mt-4">
-          <Link to="/customers" className="text-sm text-brand-600 hover:underline">
-            ← Back to Customers
-          </Link>
-        </div>
+      <div className="flex flex-col gap-4 p-6">
+        <p className="flex items-center gap-2 text-sm font-medium text-neutral-950">
+          <Icons.AlertCircle className="size-4" />
+          {error}
+        </p>
+        <Link to="/customers" className={buttonVariants({ variant: 'secondary' })}>
+          Back to Customers
+        </Link>
       </div>
     )
   }
 
   if (!customer) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8 text-center text-gray-500">
-        Customer not found.
-      </div>
+      <div className="p-6 text-center text-neutral-500">Customer not found.</div>
     )
   }
 
@@ -251,25 +247,18 @@ export default function CustomerDetail() {
     .join(', ')
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      {/* Back link */}
-      <div className="mb-4">
-        <Link to="/customers" className="text-sm text-brand-600 hover:underline">
-          ← Back to Customers
-        </Link>
-      </div>
+    <div className="flex flex-col gap-6 p-6">
+      <Breadcrumb items={[{ label: 'Customers', href: '/customers' }, { label: fullName }]} />
 
       {/* ── Merged-status notice ─────────────────────────────────── */}
       {customer.mergedIntoId && (
-        <div
-          className="mb-6 rounded-md border border-yellow-300 bg-yellow-50 px-4 py-3"
-          style={{ borderLeft: '4px solid #d97706' }}
-        >
-          <p className="text-sm font-medium text-yellow-800">
-            ⚠️ This profile has been merged into another profile.{' '}
+        <div className="flex items-start gap-2 rounded-lg border border-neutral-300 bg-neutral-50 px-4 py-3">
+          <Icons.AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <p className="text-sm font-medium text-neutral-950">
+            This profile has been merged into another profile.{' '}
             <Link
               to={`/customers/${customer.mergedIntoId}`}
-              className="underline hover:text-yellow-900"
+              className="underline underline-offset-2 hover:no-underline"
             >
               View canonical profile ({customer.mergedIntoId})
             </Link>
@@ -278,464 +267,377 @@ export default function CustomerDetail() {
       )}
 
       {/* ── Section 1: Header ────────────────────────────────────── */}
-      <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-semibold text-gray-900">{fullName}</h1>
-              {customer.isBlocked && (
-                <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-                  Blocked
-                </span>
-              )}
-              {customer.mergedIntoId && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-semibold text-yellow-800">
-                  Merged
-                </span>
-              )}
-            </div>
-            <div className="mt-1 flex flex-wrap items-center gap-4 text-sm text-gray-500">
+      <PageHeader
+        eyebrow="Customer"
+        title={
+          <span className="flex items-center gap-3">
+            {fullName}
+            {customer.isBlocked && (
+              <Badge variant="solid">
+                <Icons.AlertTriangle className="size-3" />
+                Blocked
+              </Badge>
+            )}
+            {customer.mergedIntoId && <Badge variant="outline">Merged</Badge>}
+          </span>
+        }
+        description={
+          <span className="flex flex-col gap-2">
+            <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
               {customer.email && <span>{customer.email}</span>}
               {customer.phone && <span>{customer.phone}</span>}
               {location && <span>{location}</span>}
-              {customer.languagePreference && (
-                <span>Lang: {customer.languagePreference}</span>
-              )}
-            </div>
-            {/* Tags */}
+              {customer.languagePreference && <span>Lang: {customer.languagePreference}</span>}
+            </span>
             {customer.tags.length > 0 && (
-              <div className="mt-3 flex flex-wrap gap-1.5">
+              <span className="flex flex-wrap gap-1.5">
                 {customer.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-700"
-                  >
+                  <Badge key={tag} variant="subtle" size="sm">
                     {tag}
-                  </span>
+                  </Badge>
                 ))}
-              </div>
+              </span>
             )}
-          </div>
+          </span>
+        }
+        actions={
           <div className="flex flex-col items-end gap-3">
-            <div className="text-right text-xs text-gray-400">
+            <div className="text-right text-xs text-neutral-400">
               <p>Created {fmtDate(customer.createdAt)}</p>
               <p className="mt-0.5">Updated {fmtDate(customer.updatedAt)}</p>
             </div>
             {!customer.mergedIntoId && (
               <Link
                 to={`/customers/${customer.id}/merge`}
-                className="inline-flex items-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50"
+                className={buttonVariants({ variant: 'secondary', size: 'sm' })}
               >
                 Merge with another profile
               </Link>
             )}
           </div>
-        </div>
-      </div>
+        }
+      />
 
       {/* ── Section 2: Shopify Stats ──────────────────────────────── */}
-      <section className="mb-8">
-        <SectionHeading>Shopify Stats</SectionHeading>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Total Orders" value={customer.totalOrders} />
-          <StatCard label="Total Spent" value={fmtPkr(customer.totalSpent)} />
-          <StatCard label="Avg Order Value" value={fmtPkr(customer.avgOrderValue)} />
-          <StatCard
-            label="First Order"
-            value={
-              <span className="text-base">{fmtDate(customer.firstOrderAt)}</span>
-            }
-          />
-        </div>
-      </section>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <StatCard label="Total Orders" value={customer.totalOrders} />
+        <StatCard label="Total Spent" value={fmtPkr(customer.totalSpent)} />
+        <StatCard label="Avg Order Value" value={fmtPkr(customer.avgOrderValue)} />
+        <StatCard label="First Order" value={fmtDate(customer.firstOrderAt)} />
+      </div>
 
       {/* ── Section 3: Behavioral ────────────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <SectionHeading>Behavioral Data</SectionHeading>
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <InfoRow label="Last Seen" value={fmtDate(customer.lastSeenAt)} />
-          <InfoRow label="Session Count" value={customer.sessionCount} />
-          <InfoRow
-            label="Page Views"
-            value={customer.eventStats?.pageViewCount ?? 0}
-          />
-          <InfoRow
-            label="Add to Carts"
-            value={customer.eventStats?.addToCartCount ?? 0}
-          />
-          <InfoRow
-            label="Checkout Started"
-            value={customer.eventStats?.checkoutStartedCount ?? 0}
-          />
-          <InfoRow label="Last Order" value={fmtDate(customer.lastOrderAt)} />
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Behavioral Data</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <InfoRow label="Last Seen" value={fmtDate(customer.lastSeenAt)} />
+            <InfoRow label="Session Count" value={customer.sessionCount} />
+            <InfoRow label="Page Views" value={customer.eventStats?.pageViewCount ?? 0} />
+            <InfoRow label="Add to Carts" value={customer.eventStats?.addToCartCount ?? 0} />
+            <InfoRow label="Checkout Started" value={customer.eventStats?.checkoutStartedCount ?? 0} />
+            <InfoRow label="Last Order" value={fmtDate(customer.lastOrderAt)} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Section 4: RFM Scores ────────────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <SectionHeading>RFM Scores</SectionHeading>
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <InfoRow
-            label="RFM Segment"
-            value={
-              customer.rfmSegment ? (
-                <span className="inline-flex items-center rounded-full bg-brand-100 px-2.5 py-0.5 text-xs font-semibold text-brand-700">
-                  {customer.rfmSegment}
-                </span>
-              ) : (
-                '—'
-              )
-            }
-          />
-          <InfoRow
-            label="Recency Score"
-            value={<ScoreDot score={customer.rfmRecencyScore} />}
-          />
-          <InfoRow
-            label="Frequency Score"
-            value={<ScoreDot score={customer.rfmFrequencyScore} />}
-          />
-          <InfoRow
-            label="Monetary Score"
-            value={<ScoreDot score={customer.rfmMonetaryScore} />}
-          />
-          <InfoRow label="Scored At" value={fmtDate(customer.rfmScoredAt)} />
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>RFM Scores</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <InfoRow
+              label="RFM Segment"
+              value={customer.rfmSegment ? <Badge variant="outline">{customer.rfmSegment}</Badge> : '—'}
+            />
+            <InfoRow label="Recency Score" value={<ScoreDot score={customer.rfmRecencyScore} />} />
+            <InfoRow label="Frequency Score" value={<ScoreDot score={customer.rfmFrequencyScore} />} />
+            <InfoRow label="Monetary Score" value={<ScoreDot score={customer.rfmMonetaryScore} />} />
+            <InfoRow label="Scored At" value={fmtDate(customer.rfmScoredAt)} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Section 5: AI Scores ─────────────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <SectionHeading>AI Scores</SectionHeading>
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <InfoRow
-            label="Churn Score"
-            value={
-              customer.churnScore !== null
-                ? `${(customer.churnScore * 100).toFixed(1)}%`
-                : '—'
-            }
-          />
-          <InfoRow
-            label="Churn Risk"
-            value={<ChurnRiskBadge label={customer.churnRiskLabel} />}
-          />
-          <InfoRow label="Churn Scored At" value={fmtDate(customer.churnScoredAt)} />
-          <InfoRow label="LTV 90d" value={fmtPkr(customer.ltv90d)} />
-          <InfoRow label="LTV 180d" value={fmtPkr(customer.ltv180d)} />
-          <InfoRow label="LTV 365d" value={fmtPkr(customer.ltv365d)} />
-          <InfoRow label="LTV Scored At" value={fmtDate(customer.ltvScoredAt)} />
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>AI Scores</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <InfoRow
+              label="Churn Score"
+              value={
+                customer.churnScore !== null ? `${(customer.churnScore * 100).toFixed(1)}%` : '—'
+              }
+            />
+            <InfoRow label="Churn Risk" value={<ChurnRiskBadge label={customer.churnRiskLabel} />} />
+            <InfoRow label="Churn Scored At" value={fmtDate(customer.churnScoredAt)} />
+            <InfoRow label="LTV 90d" value={fmtPkr(customer.ltv90d)} />
+            <InfoRow label="LTV 180d" value={fmtPkr(customer.ltv180d)} />
+            <InfoRow label="LTV 365d" value={fmtPkr(customer.ltv365d)} />
+            <InfoRow label="LTV Scored At" value={fmtDate(customer.ltvScoredAt)} />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Section 6: COD Profile ───────────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <SectionHeading>COD Profile</SectionHeading>
-        <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-          <InfoRow label="COD Orders" value={customer.codOrderCount} />
-          <InfoRow
-            label="Acceptance Rate"
-            value={fmtPct(customer.codAcceptanceRate)}
-          />
-          <InfoRow
-            label="Rejection Rate"
-            value={fmtPct(customer.codRejectionRate)}
-          />
-          <InfoRow
-            label="Fake Order Score"
-            value={
-              customer.fakeOrderScore !== null
-                ? customer.fakeOrderScore.toFixed(2)
-                : '—'
-            }
-          />
-          <InfoRow
-            label="Verification Status"
-            value={
-              customer.isBlocked ? (
-                <span className="text-red-600 font-medium">Blocked</span>
-              ) : (
-                <span className="text-green-600 font-medium">Active</span>
-              )
-            }
-          />
-        </div>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>COD Profile</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+            <InfoRow label="COD Orders" value={customer.codOrderCount} />
+            <InfoRow label="Acceptance Rate" value={fmtPct(customer.codAcceptanceRate)} />
+            <InfoRow label="Rejection Rate" value={fmtPct(customer.codRejectionRate)} />
+            <InfoRow
+              label="Fake Order Score"
+              value={customer.fakeOrderScore !== null ? customer.fakeOrderScore.toFixed(2) : '—'}
+            />
+            <InfoRow
+              label="Verification Status"
+              value={
+                customer.isBlocked ? (
+                  <span className="inline-flex items-center gap-1 font-medium text-neutral-950">
+                    <Icons.AlertTriangle className="size-4" />
+                    Blocked
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 font-medium text-neutral-950">
+                    <Icons.CheckCircle className="size-4" />
+                    Active
+                  </span>
+                )
+              }
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* ── Section 7: Channel Opt-ins ───────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-        <SectionHeading>Channel Opt-ins</SectionHeading>
-        <div className="flex flex-wrap gap-8">
-          <div className="flex items-center gap-2">
-            <OptinIcon value={customer.isSubscribedEmail} />
-            <span className="text-sm text-gray-700">Email</span>
+      <Card>
+        <CardHeader>
+          <CardTitle>Channel Opt-ins</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap gap-8">
+            <div className="flex items-center gap-2">
+              <OptinIcon value={customer.isSubscribedEmail} />
+              <span className="text-sm text-neutral-700">Email</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <OptinIcon value={customer.isSubscribedSms} />
+              <span className="text-sm text-neutral-700">SMS</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <OptinIcon value={customer.isSubscribedWhatsapp} />
+              <span className="text-sm text-neutral-700">WhatsApp</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <OptinIcon value={customer.isSubscribedSms} />
-            <span className="text-sm text-gray-700">SMS</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <OptinIcon value={customer.isSubscribedWhatsapp} />
-            <span className="text-sm text-gray-700">WhatsApp</span>
-          </div>
-        </div>
-      </section>
+        </CardContent>
+      </Card>
 
       {/* ── Section 8: Segment Memberships ──────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 pt-6 pb-2">
-          <SectionHeading>Segment Memberships</SectionHeading>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Segment
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Entered
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {customer.segmentMemberships.length === 0 ? (
-              <EmptyTableRow colSpan={2} message="Not in any segments yet." />
-            ) : (
-              customer.segmentMemberships.map((seg) => (
-                <tr key={seg.segmentId} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-3 text-sm font-medium text-gray-900">
-                    {seg.segmentName}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-500">
-                    {fmtDate(seg.enteredAt)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Segment Memberships</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Segment</TableHead>
+                <TableHead>Entered</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customer.segmentMemberships.length === 0 ? (
+                <TableEmpty colSpan={2}>Not in any segments yet.</TableEmpty>
+              ) : (
+                customer.segmentMemberships.map((seg) => (
+                  <TableRow key={seg.segmentId}>
+                    <TableCell className="font-medium">{seg.segmentName}</TableCell>
+                    <TableCell className="text-neutral-500">{fmtDate(seg.enteredAt)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* ── Section 9: Journey Enrollments ──────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 pt-6 pb-2">
-          <SectionHeading>Active Journey Enrollments</SectionHeading>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Journey
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Enrolled
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {customer.journeyEnrollments.length === 0 ? (
-              <EmptyTableRow colSpan={3} message="Not enrolled in any journeys." />
-            ) : (
-              customer.journeyEnrollments.map((j) => (
-                <tr key={j.journeyId} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-3 text-sm font-medium text-gray-900">
-                    {j.journeyName}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        j.status === 'ACTIVE'
-                          ? 'bg-green-100 text-green-800'
-                          : j.status === 'COMPLETED'
-                          ? 'bg-blue-100 text-blue-800'
-                          : j.status === 'EXITED'
-                          ? 'bg-gray-100 text-gray-700'
-                          : 'bg-yellow-100 text-yellow-800'
-                      }`}
-                    >
-                      {j.status}
-                    </span>
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-500">
-                    {fmtDate(j.enrolledAt)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Active Journey Enrollments</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Journey</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Enrolled</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customer.journeyEnrollments.length === 0 ? (
+                <TableEmpty colSpan={3}>Not enrolled in any journeys.</TableEmpty>
+              ) : (
+                customer.journeyEnrollments.map((j) => (
+                  <TableRow key={j.journeyId}>
+                    <TableCell className="font-medium">{j.journeyName}</TableCell>
+                    <TableCell>
+                      <JourneyStatusBadge status={j.status} />
+                    </TableCell>
+                    <TableCell className="text-neutral-500">{fmtDate(j.enrolledAt)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* ── Section 10: Recent Orders ────────────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 pt-6 pb-2">
-          <SectionHeading>Recent Orders</SectionHeading>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Order #', 'Total', 'Payment', 'Fulfillment', 'COD', 'Date'].map(
-                (col) => (
-                  <th
-                    key={col}
-                    className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
-                  >
-                    {col}
-                  </th>
-                )
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Orders</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Order #</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead>Payment</TableHead>
+                <TableHead>Fulfillment</TableHead>
+                <TableHead>COD</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customer.recentOrders.length === 0 ? (
+                <TableEmpty colSpan={6}>No orders yet.</TableEmpty>
+              ) : (
+                customer.recentOrders.slice(0, 10).map((order) => (
+                  <TableRow key={order.id}>
+                    <TableCell className="font-medium">{fmt(order.orderNumber)}</TableCell>
+                    <TableCell className="tabular text-neutral-700">{fmtPkr(order.totalPrice)}</TableCell>
+                    <TableCell>
+                      {order.financialStatus ? (
+                        <FinancialStatusBadge status={order.financialStatus} />
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {order.fulfillmentStatus ? (
+                        <FulfillmentStatusBadge status={order.fulfillmentStatus} />
+                      ) : (
+                        <span className="text-neutral-400">Unfulfilled</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {order.isCod ? (
+                        <Badge variant="outline">COD</Badge>
+                      ) : (
+                        <span className="text-neutral-400">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-neutral-500">{fmtDate(order.placedAt)}</TableCell>
+                  </TableRow>
+                ))
               )}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {customer.recentOrders.length === 0 ? (
-              <EmptyTableRow colSpan={6} message="No orders yet." />
-            ) : (
-              customer.recentOrders.slice(0, 10).map((order) => (
-                <tr key={order.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-3 text-sm font-medium text-gray-900">
-                    {fmt(order.orderNumber)}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-700">
-                    {fmtPkr(order.totalPrice)}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm">
-                    {order.financialStatus ? (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          order.financialStatus === 'paid'
-                            ? 'bg-green-100 text-green-800'
-                            : order.financialStatus === 'pending'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : order.financialStatus === 'refunded'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {order.financialStatus}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm">
-                    {order.fulfillmentStatus ? (
-                      <span
-                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          order.fulfillmentStatus === 'fulfilled'
-                            ? 'bg-green-100 text-green-800'
-                            : order.fulfillmentStatus === 'partial'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-gray-100 text-gray-700'
-                        }`}
-                      >
-                        {order.fulfillmentStatus}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">Unfulfilled</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm">
-                    {order.isCod ? (
-                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-800">
-                        COD
-                      </span>
-                    ) : (
-                      <span className="text-gray-400">—</span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-500">
-                    {fmtDate(order.placedAt)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* ── Section 11: Abandoned Checkouts ─────────────────────── */}
-      <section className="mb-8 rounded-lg border border-gray-200 bg-white shadow-sm overflow-hidden">
-        <div className="px-6 pt-6 pb-2">
-          <SectionHeading>Abandoned Checkouts</SectionHeading>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Total', 'Status', 'Date'].map((col) => (
-                <th
-                  key={col}
-                  className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500"
-                >
-                  {col}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100 bg-white">
-            {customer.recentAbandonedCheckouts.length === 0 ? (
-              <EmptyTableRow colSpan={3} message="No abandoned checkouts." />
-            ) : (
-              customer.recentAbandonedCheckouts.slice(0, 5).map((checkout) => (
-                <tr key={checkout.id} className="hover:bg-gray-50">
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-700">
-                    {fmtPkr(checkout.totalPrice)}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm">
-                    {checkout.recoveredAt ? (
-                      <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-800">
-                        Recovered
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800">
-                        Abandoned
-                      </span>
-                    )}
-                  </td>
-                  <td className="whitespace-nowrap px-6 py-3 text-sm text-gray-500">
-                    {fmtDate(checkout.abandonedAt)}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </section>
+      <Card>
+        <CardHeader>
+          <CardTitle>Abandoned Checkouts</CardTitle>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Total</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Date</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {customer.recentAbandonedCheckouts.length === 0 ? (
+                <TableEmpty colSpan={3}>No abandoned checkouts.</TableEmpty>
+              ) : (
+                customer.recentAbandonedCheckouts.slice(0, 5).map((checkout) => (
+                  <TableRow key={checkout.id}>
+                    <TableCell className="tabular text-neutral-700">{fmtPkr(checkout.totalPrice)}</TableCell>
+                    <TableCell>
+                      {checkout.recoveredAt ? (
+                        <Badge variant="outline">
+                          <Icons.CheckCircle className="size-3" />
+                          Recovered
+                        </Badge>
+                      ) : (
+                        <Badge variant="subtle">Abandoned</Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-neutral-500">{fmtDate(checkout.abandonedAt)}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       {/* ── Section 12: Cross-Store Presence ────────────────────── */}
       {groupMembers.length > 0 && (
-        <section className="rounded border p-4">
-          <h2 className="mb-3 font-semibold text-gray-700">
-            Cross-Store Presence ({groupMembers.length} stores)
-          </h2>
-          <div className="space-y-3">
-            {groupMembers.map((member) => (
-              <div
-                key={member.customerId}
-                className="flex items-center justify-between rounded bg-gray-50 px-3 py-2 text-sm"
-              >
-                <div>
-                  <span className="font-medium">{member.merchantName}</span>
-                  {member.firstName && (
-                    <span className="ml-2 text-gray-600">
-                      {member.firstName} {member.lastName}
-                    </span>
-                  )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Cross-Store Presence ({groupMembers.length} stores)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              {groupMembers.map((member) => (
+                <div
+                  key={member.customerId}
+                  className="flex items-center justify-between rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm"
+                >
+                  <div>
+                    <span className="font-medium text-neutral-950">{member.merchantName}</span>
+                    {member.firstName && (
+                      <span className="ml-2 text-neutral-600">
+                        {member.firstName} {member.lastName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-6 text-neutral-600">
+                    <span className="tabular">{member.totalOrders} orders</span>
+                    <span className="tabular">PKR {member.totalSpent}</span>
+                    {member.customerId !== customer.id && (
+                      <a
+                        href={`/customers/${member.customerId}`}
+                        className="inline-flex items-center gap-1 font-medium text-neutral-950 underline-offset-2 hover:underline"
+                      >
+                        View profile
+                        <Icons.ArrowRight className="size-3.5" />
+                      </a>
+                    )}
+                  </div>
                 </div>
-                <div className="flex gap-6 text-gray-600">
-                  <span>{member.totalOrders} orders</span>
-                  <span>PKR {member.totalSpent}</span>
-                  {member.customerId !== customer.id && (
-                    <a href={`/customers/${member.customerId}`} className="text-blue-600 hover:underline">
-                      View profile →
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )
