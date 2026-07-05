@@ -56,7 +56,10 @@ async function shopifyRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     const { code, shop, state, timestamp } = parsed.data
-    const allParams = parsed.data as Record<string, string>
+    // HMAC must be computed over the FULL raw query Shopify sent (including `host`
+    // and any future params), not the Zod-whitelisted subset — otherwise the
+    // reconstructed message is missing params and the signature never matches.
+    const allParams = request.query as Record<string, string>
 
     if (!env.SHOPIFY_API_SECRET || !env.SHOPIFY_APP_URL) {
       return reply.status(503).send({ error: 'Shopify integration not configured' })

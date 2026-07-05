@@ -15,12 +15,14 @@ const WEBHOOK_TOPICS = [
 ] as const
 
 export function buildInstallUrl(shop: string, state: string): string {
+  // No grant_options[]=per-user → Shopify issues an OFFLINE token (long-lived),
+  // so background webhooks and historical backfill keep working after the
+  // installing user's session ends.
   const params = new URLSearchParams({
     client_id: String(env.SHOPIFY_API_KEY),
     scope: String(env.SHOPIFY_SCOPES),
     redirect_uri: `${String(env.SHOPIFY_APP_URL)}/shopify/callback`,
     state,
-    'grant_options[]': 'per-user',
   })
   return `https://${shop}/admin/oauth/authorize?${params.toString()}`
 }
